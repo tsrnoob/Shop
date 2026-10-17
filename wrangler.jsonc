@@ -1,0 +1,9 @@
+// Tells Cloudflare to serve the "site" folder as the website.
+// Put this file in the top level of the GitHub repo, next to SETUP.md and the site/ folder.
+{
+  "name": "shop",
+  "compatibility_date": "2026-10-01",
+  "assets": {
+    "directory": "./site"
+  }
+}

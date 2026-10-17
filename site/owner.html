@@ -1,0 +1,147 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="robots" content="noindex, nofollow">
+<title>Shop Owner</title>
+<meta name="theme-color" content="#221a18">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23221a18'/%3E%3Ctext x='32' y='45' font-size='36' text-anchor='middle' fill='%23ffd84a' font-family='sans-serif' font-weight='700'%3E店%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+<link rel="stylesheet" href="assets/owner.css">
+</head>
+<body class="owner">
+
+<header class="sign">
+  <div class="wrap">
+    <h1>Owner<small id="shop-label">Garching Snack Shop</small></h1>
+    <span class="who" id="owner-who" hidden></span>
+    <button class="btn small" id="signout" type="button" hidden>Sign out</button>
+  </div>
+  <nav class="tabs wrap" id="tabs" hidden role="tablist">
+    <button role="tab" data-tab="orders" aria-selected="true">Orders <span class="badge" id="new-count" hidden>0</span></button>
+    <button role="tab" data-tab="products" aria-selected="false">Products</button>
+    <button role="tab" data-tab="inventory" aria-selected="false">Inventory</button>
+    <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
+  </nav>
+</header>
+
+<!-- ============ sign in ============ -->
+<main id="signin-view" class="login" hidden>
+  <form class="card" id="signin-form" novalidate>
+    <h2>Owner sign in</h2>
+    <label class="field"><span>Email</span><input id="si-email" type="email" autocomplete="username" required></label>
+    <label class="field"><span>Password</span><input id="si-pass" type="password" autocomplete="current-password" required></label>
+    <div class="err" id="si-err" hidden></div>
+    <button class="btn primary block" type="submit">Sign in</button>
+  </form>
+</main>
+
+<main id="owner-view" class="wrap" hidden>
+
+  <!-- ---------- orders ---------- -->
+  <section data-panel="orders" class="panel">
+    <div class="toolbar">
+      <div class="chips" id="order-filter" role="group" aria-label="Filter orders">
+        <button data-f="open" aria-pressed="true">Open</button>
+        <button data-f="preorder" aria-pressed="false">Preorders</button>
+        <button data-f="delivered" aria-pressed="false">Delivered</button>
+        <button data-f="cancelled" aria-pressed="false">Cancelled</button>
+        <button data-f="all" aria-pressed="false">All</button>
+      </div>
+      <input class="search" id="order-search" type="search" placeholder="Search WeChat ID or code">
+      <span class="muted small" id="refreshed"></span>
+    </div>
+    <div id="orders" class="olist"></div>
+  </section>
+
+  <!-- ---------- products ---------- -->
+  <section data-panel="products" class="panel" hidden>
+    <div class="toolbar">
+      <h2>Products</h2>
+      <button class="btn primary" id="add-product" type="button">+ Add product</button>
+    </div>
+    <p class="hint">A product shows in the shop when it has a price and "In shop" is on. Changes save when you press Save on that row.</p>
+    <div id="products" class="plist"></div>
+  </section>
+
+  <!-- ---------- inventory ---------- -->
+  <section data-panel="inventory" class="panel" hidden>
+    <div class="toolbar">
+      <h2>Inventory</h2>
+      <button class="btn small" id="eye" type="button" aria-pressed="false">Hide numbers</button>
+    </div>
+    <div class="stats" id="stats"></div>
+    <div class="tablewrap"><table class="inv" id="inv"></table></div>
+    <form class="card sale" id="sale-form" novalidate>
+      <h3>Record a sale made outside the site</h3>
+      <div class="grid3">
+        <label class="field"><span>Product</span><select id="sale-product"></select></label>
+        <label class="field"><span>Qty</span><input id="sale-qty" type="number" min="1" value="1" inputmode="numeric"></label>
+        <label class="field"><span>Price each (€)</span><input id="sale-price" inputmode="decimal" placeholder="labelled price"></label>
+      </div>
+      <label class="field"><span>Note</span><input id="sale-note" maxlength="300" placeholder="e.g. sold to a friend"></label>
+      <div class="err" id="sale-err" hidden></div>
+      <button class="btn primary" type="submit">Record sale</button>
+    </form>
+  </section>
+
+  <!-- ---------- settings ---------- -->
+  <section data-panel="settings" class="panel" hidden>
+    <form class="card" id="settings-form" novalidate>
+      <h2>Settings</h2>
+      <label class="field"><span>Shop name</span><input id="st-name" maxlength="60"></label>
+      <label class="field"><span>Your WeChat ID (shown to customers)</span><input id="st-wechat" maxlength="40"></label>
+      <label class="field"><span>Meeting spots, one per line (Garching campus)</span><textarea id="st-locations" rows="8"></textarea></label>
+      <div class="grid3">
+        <label class="field"><span>Preorder days ahead</span><input id="st-pre" type="number" min="0" max="60" inputmode="numeric"></label>
+        <label class="field"><span>Max per product per order</span><input id="st-max" type="number" min="1" max="99" inputmode="numeric"></label>
+        <label class="field"><span>Max open orders per customer</span><input id="st-open" type="number" min="1" max="50" inputmode="numeric"></label>
+      </div>
+      <label class="field"><span>Banner message on the shop (optional)</span><input id="st-notice" maxlength="200" placeholder="e.g. Back on Monday · 周一回来"></label>
+      <label class="field"><span>Phone notifications: ntfy topic</span><input id="st-ntfy" maxlength="64" autocapitalize="none" spellcheck="false" placeholder="e.g. garching-snacks-k39x7q"></label>
+      <p class="hint">Install the free <b>ntfy</b> app, subscribe to this exact topic name, and you'll get a push for every new order. Pick something long and random; anyone who knows it can read the notifications.</p>
+      <p class="hint">Owner account: <b id="st-owner"></b> (change it in the Supabase SQL editor).</p>
+      <div class="err" id="st-err" hidden></div>
+      <button class="btn primary" type="submit">Save settings</button>
+    </form>
+  </section>
+</main>
+
+<!-- ============ product editor ============ -->
+<div class="overlay" id="prod-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="pe-title">
+    <header><h2 id="pe-title">Product</h2><button class="x" type="button" data-close aria-label="Close">×</button></header>
+    <form class="body" id="pe-form" novalidate>
+      <div class="pe-img">
+        <img id="pe-preview" alt="">
+        <label class="btn small">Choose photo<input type="file" id="pe-file" accept="image/*" hidden></label>
+      </div>
+      <label class="field"><span>Chinese name</span><input id="pe-cn" maxlength="80"></label>
+      <label class="field"><span>English name</span><input id="pe-en" maxlength="120"></label>
+      <label class="field"><span>Details (size, weight…)</span><input id="pe-meta" maxlength="120"></label>
+      <div class="grid3">
+        <label class="field"><span>Price (€)</span><input id="pe-price" inputmode="decimal"></label>
+        <label class="field"><span>Bought for (€)</span><input id="pe-cost" inputmode="decimal"></label>
+        <label class="field" id="pe-stock-wrap"><span>Starting stock</span><input id="pe-stock" type="number" min="0" inputmode="numeric" value="0"></label>
+      </div>
+      <label class="field"><span>Sort order (lower shows first)</span><input id="pe-sort" type="number" inputmode="numeric" value="100"></label>
+      <label class="check"><input type="checkbox" id="pe-active" checked> In shop</label>
+      <label class="check"><input type="checkbox" id="pe-pre" checked> Allow preorders when sold out</label>
+      <div class="err" id="pe-err" hidden></div>
+      <button class="btn primary block" type="submit" id="pe-save">Save product</button>
+    </form>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/owner.js"></script>
+</body>
+</html>

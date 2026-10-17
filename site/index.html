@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Garching Snack Shop</title>
+<meta name="description" content="Chinese snacks and self-heating hot pot, handed over on the TUM Garching campus. Pay on pickup.">
+<meta name="theme-color" content="#c8261c">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 64 64'%3E%3Crect width='64' height='64' rx='14' fill='%23c8261c'/%3E%3Ctext x='32' y='45' font-size='36' text-anchor='middle' fill='%23ffd84a' font-family='sans-serif' font-weight='700'%3E零%3C/text%3E%3C/svg%3E">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@500;700&family=Figtree:wght@400;600;700&family=JetBrains+Mono:wght@600;700&display=swap">
+<link rel="stylesheet" href="assets/style.css">
+</head>
+<body>
+
+<header class="sign">
+  <div class="wrap">
+    <h1><span id="shop-name">Garching Snack Shop</span><small>TUM Garching · 货到付款 pay on pickup</small></h1>
+    <div class="who" id="who" hidden><span>微信 WeChat:</span><b id="who-id"></b><button class="linkish" id="logout" type="button">换 Change</button></div>
+    <button class="btn small" id="open-orders" type="button" hidden>我的订单 My orders</button>
+  </div>
+</header>
+
+<!-- ============ login ============ -->
+<main id="login-view" class="login" hidden>
+  <form class="card" id="login-form" novalidate>
+    <h2><span class="cn">输入你的微信号</span><br>Enter your WeChat ID</h2>
+    <p class="hint">I use it to message you when your order is ready. Your orders stay on this phone.</p>
+    <label class="field"><span>微信号 WeChat ID</span>
+      <input id="login-id" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="e.g. wxid_abc123" required>
+    </label>
+    <div class="err" id="login-err" hidden></div>
+    <button class="btn primary block" type="submit">进入 Continue</button>
+  </form>
+  <section class="card">
+    <h3><span class="cn">还没加我微信？</span> Haven't added me on WeChat yet?</h3>
+    <p class="hint">Add me first so I can reach you about your order.</p>
+    <div class="wechat-box">
+      <span class="id wechat-contact">guest19191231</span>
+      <button class="btn small copy-wechat" type="button">复制 Copy</button>
+    </div>
+  </section>
+</main>
+
+<!-- ============ shop ============ -->
+<main id="shop-view" hidden>
+  <div class="wrap">
+    <div class="notice" id="notice" hidden></div>
+    <div class="strip">
+      <span><b>Garching campus only</b> · pick a meeting spot at checkout</span>
+      <span>Pay on pickup: <b>cash, PayPal or WeChat Pay</b></span>
+      <span>Sold out? <b>Preorder</b> at least <b class="num" id="pre-days">5</b> days ahead</span>
+    </div>
+    <div class="shelf" id="shelf"><div class="empty">Loading…</div></div>
+  </div>
+</main>
+
+<div class="cartbar" id="cartbar" hidden>
+  <div class="inner">
+    <div class="sum"><span class="muted small" id="cart-count"></span><br><b id="cart-total">€0.00</b></div>
+    <button class="btn primary" id="open-cart" type="button">去结算 Checkout</button>
+  </div>
+</div>
+
+<!-- ============ cart / checkout ============ -->
+<div class="overlay" id="cart-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="cart-title">
+    <header><h2 id="cart-title">购物车 Your cart</h2><button class="x" type="button" data-close aria-label="Close">×</button></header>
+    <div class="body" id="cart-body">
+      <div class="lines" id="cart-lines"></div>
+      <div class="totalrow"><span>合计 Total</span><span class="num" id="cart-sum">€0.00</span></div>
+
+      <form id="checkout" class="lines" novalidate>
+        <label class="field"><span><span class="cn">见面地点</span> · Meeting spot (Garching campus)</span>
+          <select id="co-location" required></select>
+        </label>
+        <label class="field" id="co-date-wrap" hidden><span><span class="cn">预订日期</span> · Preorder pickup date</span>
+          <input type="date" id="co-date">
+          <small class="hint" id="co-date-hint"></small>
+        </label>
+        <label class="field"><span><span class="cn">备注</span> · Note (optional)</span>
+          <textarea id="co-note" maxlength="300" placeholder="When are you free? e.g. weekdays after 14:00"></textarea>
+        </label>
+        <div class="pay">
+          <b>货到付款 · Pay when we meet</b>
+          <div class="ways"><span>现金 Cash</span><span>PayPal</span><span>微信支付 WeChat Pay</span></div>
+          <span class="hint">Please have the money ready when you pick up. I'll message you on WeChat to arrange the time.</span>
+        </div>
+        <div class="err" id="co-err" hidden></div>
+        <button class="btn primary block" type="submit" id="co-submit">下单 Place order</button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ my orders ============ -->
+<div class="overlay" id="orders-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="orders-title">
+    <header><h2 id="orders-title">我的订单 My orders</h2><button class="x" type="button" data-close aria-label="Close">×</button></header>
+    <div class="body" id="orders-body"></div>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
+<script src="assets/config.js"></script>
+<script src="assets/api.js"></script>
+<script src="assets/shop.js"></script>
+</body>
+</html>
