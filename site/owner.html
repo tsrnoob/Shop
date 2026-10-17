@@ -24,6 +24,8 @@
   <nav class="tabs wrap" id="tabs" hidden role="tablist">
     <button role="tab" data-tab="orders" aria-selected="true">Orders <span class="badge" id="new-count" hidden>0</span></button>
     <button role="tab" data-tab="products" aria-selected="false">Products</button>
+    <button role="tab" data-tab="menus" aria-selected="false">Menus</button>
+    <button role="tab" data-tab="customers" aria-selected="false">Customers</button>
     <button role="tab" data-tab="inventory" aria-selected="false">Inventory</button>
     <button role="tab" data-tab="settings" aria-selected="false">Settings</button>
   </nav>
@@ -64,8 +66,41 @@
       <h2>Products</h2>
       <button class="btn primary" id="add-product" type="button">+ Add product</button>
     </div>
-    <p class="hint">A product shows in the shop when it has a price and "In shop" is on. Changes save when you press Save on that row.</p>
+    <p class="hint"><b>In shop</b> switches a product on or off everywhere. <b>Sell alone</b> shows it as a single item (it needs a price); with it off, the product is only used inside meal sets (like the single 魔芋爽 packs). The <b>category</b> decides which meal-set choice it appears in. Press Save on the row after changes.</p>
     <div id="products" class="plist"></div>
+  </section>
+
+  <!-- ---------- menus (meal sets) ---------- -->
+  <section data-panel="menus" class="panel" hidden>
+    <div class="toolbar">
+      <h2>Menus · 套餐</h2>
+      <button class="btn primary" id="add-bundle" type="button">+ New menu</button>
+    </div>
+    <p class="hint">Each menu has choices. A choice lets the customer pick any product of that <b>category</b> that is in stock, so new drinks or waters show up automatically once you add them as products with that category. A menu appears in the shop once it has a price and is switched on.</p>
+    <div id="bundles" class="blist"></div>
+  </section>
+
+  <!-- ---------- customers ---------- -->
+  <section data-panel="customers" class="panel" hidden>
+    <form class="card" id="cust-form" novalidate>
+      <h2>Add a customer</h2>
+      <p class="hint">After someone adds you on WeChat, create their account here and send them the login details. A password is generated for you.</p>
+      <div class="grid3">
+        <label class="field"><span>Username</span><input id="cu-user" maxlength="30" autocapitalize="none" spellcheck="false" placeholder="e.g. lin2002"></label>
+        <label class="field"><span>WeChat ID</span><input id="cu-wechat" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="their WeChat ID"></label>
+        <label class="field"><span>Note (only you see it)</span><input id="cu-note" maxlength="200" placeholder="e.g. MI, friend of Chen"></label>
+      </div>
+      <div class="err" id="cu-err" hidden></div>
+      <button class="btn primary" type="submit" id="cu-save">Create account</button>
+    </form>
+    <div class="card cred" id="cred" hidden>
+      <h3 id="cred-title">Login details</h3>
+      <pre id="cred-text"></pre>
+      <div class="acts"><button class="btn primary" type="button" id="cred-copy">Copy for WeChat</button><button class="btn ghost" type="button" id="cred-close">Done</button></div>
+      <p class="hint">The password is only shown now. If it gets lost, use <b>New password</b>.</p>
+    </div>
+    <div class="toolbar"><h2>Customers</h2><input class="search" id="cust-search" type="search" placeholder="Search username or WeChat ID"></div>
+    <div id="customers" class="clist"></div>
   </section>
 
   <!-- ---------- inventory ---------- -->
@@ -95,7 +130,7 @@
       <h2>Settings</h2>
       <label class="field"><span>Shop name</span><input id="st-name" maxlength="60"></label>
       <label class="field"><span>Your WeChat ID (shown to customers)</span><input id="st-wechat" maxlength="40"></label>
-      <label class="field"><span>Meeting spots, one per line (Garching campus)</span><textarea id="st-locations" rows="8"></textarea></label>
+      <label class="field"><span>Pickup area(s), one per line. With one line, customers just see it as a reminder.</span><textarea id="st-locations" rows="3"></textarea></label>
       <div class="grid3">
         <label class="field"><span>Preorder days ahead</span><input id="st-pre" type="number" min="0" max="60" inputmode="numeric"></label>
         <label class="field"><span>Max per product per order</span><input id="st-max" type="number" min="1" max="99" inputmode="numeric"></label>
@@ -124,12 +159,16 @@
       <label class="field"><span>English name</span><input id="pe-en" maxlength="120"></label>
       <label class="field"><span>Details (size, weight…)</span><input id="pe-meta" maxlength="120"></label>
       <div class="grid3">
+        <label class="field"><span>Category</span><select id="pe-cat"></select></label>
+      </div>
+      <div class="grid3">
         <label class="field"><span>Price (€)</span><input id="pe-price" inputmode="decimal"></label>
         <label class="field"><span>Bought for (€)</span><input id="pe-cost" inputmode="decimal"></label>
         <label class="field" id="pe-stock-wrap"><span>Starting stock</span><input id="pe-stock" type="number" min="0" inputmode="numeric" value="0"></label>
       </div>
       <label class="field"><span>Sort order (lower shows first)</span><input id="pe-sort" type="number" inputmode="numeric" value="100"></label>
       <label class="check"><input type="checkbox" id="pe-active" checked> In shop</label>
+      <label class="check"><input type="checkbox" id="pe-shelf" checked> Sell alone (not only in meal sets)</label>
       <label class="check"><input type="checkbox" id="pe-pre" checked> Allow preorders when sold out</label>
       <div class="err" id="pe-err" hidden></div>
       <button class="btn primary block" type="submit" id="pe-save">Save product</button>

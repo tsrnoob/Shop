@@ -8,7 +8,7 @@
     : null;
 
   function fail(error) {
-    const msg = (error && (error.message || error.error_description)) || "unknown";
+    const msg = (error && (error.message || error.error_description || error.error)) || "unknown";
     const e = new Error(msg);
     e.code = msg;
     throw e;
@@ -25,7 +25,7 @@
     return data;
   }
 
-  // Shrinks a phone photo to a square-ish 800px JPEG before upload.
+  // Shrinks a phone photo to an 800px JPEG before upload.
   async function shrink(file) {
     const url = URL.createObjectURL(file);
     try {
@@ -41,22 +41,34 @@
 
   window.API = {
     configured: !!sb,
-    // ---- customers ----
+
+    // ---- customers (log in with an account the owner created) ----
     getShop: () => rpc("get_shop"),
-    placeOrder: (o) => rpc("place_order", {
-      p_wechat_id: o.wechat_id, p_location: o.location, p_note: o.note || "",
-      p_items: o.items, p_wanted_date: o.wanted_date || null
+    async login(username, password) {
+      const r = await rpc("shop_login", { p_username: username, p_password: password });
+      if (r && r.error) fail({ message: r.error });
+      return r;
+    },
+    me: (session) => rpc("shop_me", { p_session: session }),
+    logout: (session) => rpc("shop_logout", { p_session: session }),
+    placeOrder: (o) => rpc("shop_place_order", {
+      p_session: o.session, p_note: o.note || "", p_items: o.items,
+      p_wanted_date: o.wanted_date || null, p_location: o.location || null
     }),
-    getMyOrders: (tokens) => tokens.length ? rpc("get_my_orders", { p_tokens: tokens }) : Promise.resolve([]),
-    cancelMyOrder: (token) => rpc("cancel_my_order", { p_token: token }),
+    myOrders: (session) => rpc("shop_my_orders", { p_session: session }),
+    cancelOrder: (session, code) => rpc("shop_cancel_order", { p_session: session, p_code: code }),
 
     // ---- owner ----
     async session() { if (!sb) return null; const { data } = await sb.auth.getSession(); return data.session; },
     async signIn(email, password) { if (!sb) fail({ message: "not_configured" }); const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) fail(error); },
     async signOut() { if (sb) await sb.auth.signOut(); },
     isOwner: () => rpc("is_owner"),
-    listOrders: () => q(sb.from("orders").select("*, order_items(*)").order("created_at", { ascending: false }).limit(500)),
+
+    listOrders: () => q(sb.from("orders")
+      .select("*, order_items!order_items_order_id_fkey(*), order_bundles!order_bundles_order_id_fkey(*)")
+      .order("created_at", { ascending: false }).limit(500)),
     setStatus: (id, status) => rpc("set_order_status", { p_order_id: id, p_status: status }),
+
     listProducts: () => q(sb.from("products").select("*").order("sort").order("created_at")),
     updateProduct: (id, patch) => q(sb.from("products").update(patch).eq("id", id)),
     // Only applies if stock is still what the page showed, so a correction can't wipe out an order placed meanwhile.
@@ -74,6 +86,28 @@
       if (error) fail(error);
       return sb.storage.from("product-images").getPublicUrl(path).data.publicUrl;
     },
+
+    listCustomers: () => q(sb.from("customers")
+      .select("id, username, wechat_id, note, active, failed_logins, locked_until, last_login_at, created_at")
+      .order("created_at", { ascending: false })),
+    createCustomer: (username, wechat, note) => rpc("owner_create_customer", { p_username: username, p_wechat_id: wechat, p_note: note || "" }),
+    resetPassword: (id) => rpc("owner_reset_customer_password", { p_customer_id: id }),
+    setCustomerActive: (id, active) => rpc("owner_set_customer_active", { p_customer_id: id, p_active: active }),
+    updateCustomer: (id, patch) => q(sb.from("customers").update(patch).eq("id", id)),
+
+    listBundles: () => q(sb.from("bundles").select("*, bundle_slots(*)").order("sort").order("created_at")),
+    updateBundle: (id, patch) => q(sb.from("bundles").update(patch).eq("id", id)),
+    addBundle: (row) => q(sb.from("bundles").insert(row)),
+    // Keeps existing slot ids (so customers' carts stay valid), adds new ones, removes deleted ones.
+    async saveSlots(bundleId, slots, removedIds) {
+      for (const s of slots) {
+        const row = { label_cn: s.label_cn, label_en: s.label_en, category: s.category, qty: s.qty, is_gift: s.is_gift, sort: s.sort };
+        if (s.id) await q(sb.from("bundle_slots").update(row).eq("id", s.id));
+        else await q(sb.from("bundle_slots").insert({ ...row, bundle_id: bundleId }));
+      }
+      if (removedIds && removedIds.length) await q(sb.from("bundle_slots").delete().in("id", removedIds));
+    },
+
     getSettings: () => q(sb.from("settings").select("*").eq("id", 1).single()),
     saveSettings: (patch) => q(sb.from("settings").update(patch).eq("id", 1))
   };

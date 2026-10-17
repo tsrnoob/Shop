@@ -2,7 +2,7 @@
 
 There are two pages:
 
-- **Shop** (`yourdomain.com`): customers enter their WeChat ID, add items to the cart, pick a meeting spot on the Garching campus and order. Stock goes down straight away, and when it reaches 0 nobody else can buy that item. Sold-out items can be **preordered** at least 5 days ahead. They pay when you meet (cash, PayPal or WeChat Pay).
+- **Shop** (`tsrnoob.com`): customers log in with an account you created for them, pick single items or a meal set (套餐) with their own choices, and order for pickup in Garching Forschungszentrum. Stock goes down straight away, and when it reaches 0 nobody else can buy that item. Sold-out items can be **preordered** at least 5 days ahead. They pay when you meet (cash, PayPal or WeChat Pay).
 - **Owner page** (`yourdomain.com/owner.html`): only your account can open it. There you see orders with WeChat IDs, confirm, deliver or cancel them, change prices, restock, add products with photos, and see your inventory, profit and spending. The shop doesn't link to it. Bookmark it.
 
 Everything is free: **Supabase** (database + your login), **Cloudflare Pages** (hosting), and your **Porkbun** domain (the only cost).
@@ -75,19 +75,21 @@ Then send the link to people after they add you on WeChat.
 
 | You want to… | Where |
 |---|---|
-| See new orders | Owner → Orders (badge shows how many are new; the page refreshes every 20 s) |
+| Give someone access | Customers → enter username + their WeChat ID → **Create account** → **Copy for WeChat** and send it to them |
+| Someone forgot their password | Customers → **New password** (the old one stops working, they are logged out) |
+| Block someone | Customers → **Switch off** (logs them out everywhere; **Switch on** to undo) |
+| See new orders | Orders (badge shows how many are new; refreshes every 20 s) |
 | Confirm you've seen it | **Confirm**. After that the customer can no longer cancel it themselves |
-| After handing it over and getting paid | **Delivered & paid**. It then counts toward Sold and Profit |
-| Cancel | **Cancel** (tap twice). In-stock items go back on the shelf automatically |
-| Upcoming preorders | Orders → **Preorders**, sorted by date. Red means due in 2 days or less |
-| Bought more stock | Products → **Restock** box → number → **Add** (adds to stock and to "Spent") |
-| Fix a wrong stock count | Products → change **Stock** → **Save** |
+| Handed it over and got paid | **Delivered & paid**. Counts toward Sold and Profit |
+| Cancel | **Cancel** (tap twice). Items go back in stock automatically |
+| Upcoming preorders | Orders → **Preorders**, sorted by date. Red = due in 2 days or less |
+| Set a menu price / switch a menu on | Menus → price → **Save menu** (a menu shows once it has a price) |
+| New drink or water for the menus | Products → **+ Add product**, category **饮料 Drink** or **水 Water**. It appears as a menu choice automatically. Untick **Sell alone** if it should only come with menus |
+| Open a 魔芋爽 bag into single packs | Products: lower the bag's **Stock** by 1 and add the packs to **卫龙 魔芋爽 … (单包)** via **Restock** |
+| Bought more stock | Products → **Restock** → number → **Add** |
 | Change a price | Products → **Price** → **Save** |
-| New product | Products → **+ Add product** (take a photo with your phone) |
-| Hide a product | Products → untick **In shop** → **Save** |
 | Sold something in person | Inventory → **Record a sale made outside the site** |
-| Profit, stock value, spending | Inventory (use **Hide numbers** when someone's looking) |
-| Closed for a few days | Settings → banner message, e.g. "Back on Monday · 周一回来" |
+| Profit, stock value, spending | Inventory (menus are listed as their own rows) |
 
 ## How the rules work
 
@@ -95,8 +97,10 @@ Then send the link to people after they add you on WeChat.
 - **Preorders** are only offered when an item is sold out, and need a pickup date at least 5 days away (changeable in Settings). They don't touch stock.
 - **Limits**: max 10 of each product per order, and max 5 open orders per WeChat ID (both changeable in Settings). This stops one person from reserving the whole shelf.
 - **Customers can cancel** their own order until you press Confirm.
-- **"My orders"** for customers is saved in their phone's browser. If they switch phones, they won't see older orders there (you still see everything).
-- **WeChat IDs aren't verified.** Anyone could type someone else's ID. Since you message every buyer on WeChat before meeting, you'll notice fake orders; just cancel them.
+- **Accounts**: only people you create on the Customers tab can log in. 5 wrong passwords lock that account for 15 minutes.
+- **Menus**: every choice must be filled; gifts are free but their cost counts in your profit. A menu shows as sold out when any choice has no stock.
+- **Pickup**: with one area in Settings (Garching Forschungszentrum), customers only see it as a reminder; you agree the exact spot on WeChat.
+- **"My orders"** comes from their account, so it works on any phone they log in on.
 
 ## Files
 

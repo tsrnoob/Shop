@@ -6,7 +6,9 @@
   const num = (v) => { if (v === null || v === undefined || String(v).trim() === "") return null; const n = parseFloat(String(v).replace(",", ".")); return isFinite(n) ? n : NaN; };
   const ls = { get(k, d) { try { const v = localStorage.getItem(k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }, set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} } };
 
-  let orders = [], products = [], settings = null;
+  let orders = [], products = [], settings = null, customers = [], bundles = [];
+  const CATS = { main: "饭/火锅 Rice & hot pot", drink: "饮料 Drink", konjac: "魔芋爽单包 Konjac pack", guoba: "锅巴 Guoba", water: "水 Water", snack: "零食 Snack" };
+  const catOptions = (sel) => Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
   let filter = "open", search = "", tab = ls.get("owner.tab", "orders");
 
   let toastT;
@@ -24,7 +26,8 @@
     $("#owner-who").textContent = s.user.email; $("#owner-who").hidden = false;
     $("#signin-view").hidden = true; $("#owner-view").hidden = false; $("#tabs").hidden = false; $("#signout").hidden = false;
     setTab(tab);
-    await Promise.all([loadSettings(), loadProducts(), loadOrders()]);
+    await Promise.all([loadSettings(), loadProducts(), loadCustomers(), loadBundles()]);
+    await loadOrders();
     setInterval(() => { if (!document.hidden) loadOrders(true); }, 20000);
     document.addEventListener("visibilitychange", () => { if (!document.hidden) loadOrders(true); });
   }
@@ -47,6 +50,8 @@
     $$("#tabs [data-tab]").forEach((b) => b.setAttribute("aria-selected", String(b.dataset.tab === t)));
     $$("[data-panel]").forEach((p) => (p.hidden = p.dataset.panel !== t));
     if (t === "inventory") renderInventory();
+    if (t === "menus") renderBundles();
+    if (t === "customers") renderCustomers();
   }
   $$("#tabs [data-tab]").forEach((b) => (b.onclick = () => setTab(b.dataset.tab)));
 
@@ -81,7 +86,8 @@
 
     const s = search.toLowerCase();
     let list = orders.filter((o) => {
-      if (s && !(o.wechat_id.toLowerCase().includes(s) || o.code.toLowerCase().includes(s))) return false;
+      const un = (customers.find((c) => c.id === o.customer_id)?.username || "").toLowerCase();
+      if (s && !(o.wechat_id.toLowerCase().includes(s) || o.code.toLowerCase().includes(s) || un.includes(s))) return false;
       if (filter === "open") return (o.status === "new" || o.status === "confirmed");
       if (filter === "preorder") return o.wanted_date && (o.status === "new" || o.status === "confirmed");
       if (filter === "all") return true;
@@ -93,6 +99,9 @@
     if (!list.length) { $("#orders").innerHTML = `<div class="empty">${filter === "open" ? "No open orders right now." : "Nothing here."}</div>`; return; }
     $("#orders").innerHTML = list.map((o) => {
       const items = [...(o.order_items || [])].sort((a, b) => a.id - b.id);
+      const cust = customers.find((c) => c.id === o.customer_id);
+      const sets = (o.order_bundles || []).map((b) => `<li><b>${b.qty > 1 ? b.qty + " × " : ""}${esc(b.name_cn || b.name_en)}</b> <span class="muted">@ ${money(b.unit_price)}</span><ul>${items.filter((i) => i.order_bundle_id === b.id)
+        .map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)}${i.is_gift ? ' <span class="gift">gift</span>' : ""}</li>`).join("")}</ul></li>`).join("");
       let due = "";
       if (o.wanted_date) {
         const d = daysUntil(o.wanted_date);
@@ -108,11 +117,11 @@
       return `<article class="ord ${o.status === "new" ? "is-new" : ""}">
         <div class="top"><span class="code">${esc(o.code)}</span><span class="status ${o.status}">${STATUS[o.status]}</span>
           <span class="muted when" style="margin-left:auto" title="${esc(new Date(o.created_at).toLocaleString("en-GB"))}">${ago(o.created_at)}</span></div>
-        <div class="wx"><span class="muted small">WeChat</span><b>${esc(o.wechat_id)}</b>${o.is_offline ? "" : `<button class="btn small ghost" data-copy="${esc(o.wechat_id)}">Copy</button>`}</div>
+        <div class="wx"><span class="muted small">WeChat</span><b>${esc(o.wechat_id)}</b>${o.is_offline ? "" : `<button class="btn small ghost" data-copy="${esc(o.wechat_id)}">Copy</button>`}${cust ? `<span class="muted small">· ${esc(cust.username)}</span>` : ""}</div>
         <div class="small"><span class="muted">Meet at</span> <b>${esc(o.location)}</b></div>
         ${due}
         ${o.note ? `<div class="note">“${esc(o.note)}”</div>` : ""}
-        <ul>${items.map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)} <span class="muted">@ ${money(i.unit_price)}</span>${i.preorder ? ' <span class="pre-chip">preorder</span>' : ""}</li>`).join("")}</ul>
+        <ul class="setgroup">${sets}${items.filter((i) => !i.order_bundle_id).map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)} <span class="muted">@ ${money(i.unit_price)}</span>${i.preorder ? ' <span class="pre-chip">preorder</span>' : ""}</li>`).join("")}</ul>
         <div class="top"><b class="num">${money(o.total)}</b><span class="muted small">pay on pickup</span></div>
         ${acts.length ? `<div class="acts">${acts.join("")}</div>` : ""}
       </article>`;
@@ -139,19 +148,21 @@
 
   // ---------- products ----------
   async function loadProducts(quiet) {
-    try { products = await API.listProducts(); renderProducts(quiet); renderInventory(); fillSaleSelect(); }
+    try { products = await API.listProducts(); renderProducts(quiet); renderInventory(); fillSaleSelect(); if (!quiet) renderBundles(); }
     catch (e) { if (!quiet) $("#products").innerHTML = `<div class="empty">Couldn't load products: ${esc(e.message)}</div>`; }
   }
   function renderProducts(keepEdits) {
     // don't wipe a row the owner is typing in
-    if (keepEdits && $("#products").contains(document.activeElement) && document.activeElement.tagName === "INPUT") return;
+    if (keepEdits && $("#products").contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
     if (!products.length) { $("#products").innerHTML = `<div class="empty">No products yet. Add your first one.</div>`; return; }
     $("#products").innerHTML = products.map((p) => {
       const flags = [];
-      if (p.price == null) flags.push(`<span class="flag warn">No price · not in shop</span>`);
+      flags.push(`<span class="flag">${esc(CATS[p.category] || p.category)}</span>`);
+      if (!p.on_shelf) flags.push(`<span class="flag">Only in meal sets</span>`);
+      else if (p.price == null) flags.push(`<span class="flag warn">No price · not sold alone</span>`);
       if (!p.active) flags.push(`<span class="flag">Hidden</span>`);
       if (p.stock <= 0) flags.push(`<span class="flag">Sold out${p.preorder_ok ? " · preorder on" : ""}</span>`);
-      return `<div class="prow ${p.active && p.price != null ? "" : "off"}" data-id="${esc(p.id)}">
+      return `<div class="prow ${p.active && (p.price != null || !p.on_shelf) ? "" : "off"}" data-id="${esc(p.id)}">
         <img src="${esc(p.image_url)}" alt="" data-open="${esc(p.id)}">
         <div class="t"><div class="n-cn">${esc(p.name_cn)}</div><div class="n-en">${esc(p.name_en)}</div><div class="flags">${flags.join("")}</div></div>
         <button class="btn small ghost" data-open="${esc(p.id)}">Edit</button>
@@ -160,7 +171,9 @@
           <label class="mini"><span>Cost €</span><input data-f="cost" inputmode="decimal" value="${Number(p.cost).toFixed(2)}"></label>
           <label class="mini"><span>Stock</span><input data-f="stock" type="number" min="0" inputmode="numeric" value="${p.stock}" data-was="${p.stock}"></label>
           <div class="mini stockbox"><div><span>Restock</span><input data-f="restock" type="number" min="1" inputmode="numeric" placeholder="+0"></div><button class="btn small" data-restock="${esc(p.id)}">Add</button></div>
+          <label class="mini"><span>Category</span><select data-f="category">${catOptions(p.category)}</select></label>
           <label class="check"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> In shop</label>
+          <label class="check"><input type="checkbox" data-f="on_shelf" ${p.on_shelf ? "checked" : ""}> Sell alone</label>
           <div class="rowsave"><span class="saved" hidden>Saved</span><button class="btn small primary" data-save="${esc(p.id)}">Save</button></div>
         </div>
       </div>`;
@@ -186,7 +199,8 @@
     if (!(stock >= 0)) return toast("Stock must be 0 or more");
     sv.disabled = true;
     try {
-      await API.updateProduct(p.id, { price, cost, active: $("[data-f=active]", row).checked });
+      await API.updateProduct(p.id, { price, cost, active: $("[data-f=active]", row).checked,
+        on_shelf: $("[data-f=on_shelf]", row).checked, category: $("[data-f=category]", row).value });
       if (stock !== was) await API.setStock(p.id, was, stock);
       await loadProducts();
       const r = $(`.prow[data-id="${CSS.escape(p.id)}"] .saved`); if (r) { r.hidden = false; setTimeout(() => (r.hidden = true), 2000); }
@@ -207,6 +221,7 @@
     $("#pe-stock").value = 0; $("#pe-stock-wrap").hidden = !!p;
     $("#pe-sort").value = p?.sort ?? (Math.max(0, ...products.map((x) => x.sort)) + 10);
     $("#pe-active").checked = p ? p.active : true; $("#pe-pre").checked = p ? p.preorder_ok : true;
+    $("#pe-shelf").checked = p ? p.on_shelf : true; $("#pe-cat").innerHTML = catOptions(p?.category || "snack");
     $("#pe-err").hidden = true; $("#pe-file").value = "";
     $("#prod-sheet").hidden = false;
   }
@@ -225,7 +240,7 @@
     const price = num($("#pe-price").value), cost = num($("#pe-cost").value) ?? 0;
     const stock = parseInt($("#pe-stock").value || "0", 10), sort = parseInt($("#pe-sort").value || "100", 10);
     if (!name_cn && !name_en) return fail("Give it a Chinese or English name.");
-    if (Number.isNaN(price) || (price !== null && price < 0)) return fail("Price must be a number, e.g. 2.50 (or leave empty to keep it out of the shop).");
+    if (Number.isNaN(price) || (price !== null && price < 0)) return fail("Price must be a number, e.g. 2.50 (or leave empty if it's only used in meal sets).");
     if (Number.isNaN(cost) || cost < 0) return fail("Cost must be a number, e.g. 1.06");
     if (!editing && !newImage) return fail("Add a photo of the product.");
     err.hidden = true; btn.disabled = true; btn.textContent = "Saving…";
@@ -233,7 +248,8 @@
       let image_url = editing?.image_url || "";
       if (newImage) image_url = await API.uploadImage(newImage);
       const row = { name_cn, name_en, meta: $("#pe-meta").value.trim(), price, cost, sort, image_url,
-        active: $("#pe-active").checked, preorder_ok: $("#pe-pre").checked };
+        active: $("#pe-active").checked, preorder_ok: $("#pe-pre").checked,
+        on_shelf: $("#pe-shelf").checked, category: $("#pe-cat").value };
       if (editing) await API.updateProduct(editing.id, row);
       else await API.addProduct({ ...row, id: "p" + Date.now().toString(36), stock: stock > 0 ? stock : 0, purchased: stock > 0 ? stock : 0 });
       $("#prod-sheet").hidden = true; toast(editing ? "Product saved" : "Product added");
@@ -250,37 +266,56 @@
 
   function renderInventory() {
     if (tab !== "inventory") return;
-    const per = Object.fromEntries(products.map((p) => [p.id, { sold: 0, revenue: 0, profit: 0, reserved: 0, preCost: 0 }]));
+    const per = Object.fromEntries(products.map((p) => [p.id, { sold: 0, inSets: 0, revenue: 0, profit: 0, reserved: 0, preCost: 0 }]));
+    const perSet = {};
     let openValue = 0, openCount = 0;
     for (const o of orders) {
-      if (o.status === "new" || o.status === "confirmed") { openValue += Number(o.total); openCount++; }
+      const open = o.status === "new" || o.status === "confirmed";
+      if (open) { openValue += Number(o.total); openCount++; }
+      for (const b of o.order_bundles || []) {
+        if (o.status !== "delivered") continue;
+        const r = perSet[b.bundle_id] || (perSet[b.bundle_id] = { name: b.name_cn || b.name_en, sold: 0, revenue: 0, cost: 0 });
+        r.sold += b.qty; r.revenue += b.qty * b.unit_price;
+      }
       for (const i of o.order_items || []) {
         const r = per[i.product_id]; if (!r) continue;
         if (o.status === "delivered") {
-          r.sold += i.qty; r.revenue += i.qty * i.unit_price; r.profit += i.qty * (i.unit_price - i.unit_cost);
+          if (i.order_bundle_id) {
+            r.inSets += i.qty;
+            const ob = (o.order_bundles || []).find((b) => b.id === i.order_bundle_id);
+            if (ob && perSet[ob.bundle_id]) perSet[ob.bundle_id].cost += i.qty * i.unit_cost;
+          } else {
+            r.sold += i.qty; r.revenue += i.qty * i.unit_price; r.profit += i.qty * (i.unit_price - i.unit_cost);
+          }
           if (i.preorder) r.preCost += i.qty * i.unit_cost;
-        } else if ((o.status === "new" || o.status === "confirmed") && !i.preorder) r.reserved += i.qty;
+        } else if (open && !i.preorder) r.reserved += i.qty;
       }
     }
     let stockVal = 0, stockCost = 0, units = 0, spent = 0, sold = 0, revenue = 0, profit = 0;
     const rows = products.map((p) => {
       const r = per[p.id], price = p.price == null ? null : Number(p.price), cost = Number(p.cost);
-      if (price != null) stockVal += p.stock * price;
+      if (price != null && p.on_shelf) stockVal += p.stock * price;
       stockCost += p.stock * cost; units += p.stock;
       spent += p.purchased * cost + r.preCost; sold += r.sold; revenue += r.revenue; profit += r.profit;
       return `<tr><td><span class="cn">${esc(p.name_cn || p.name_en)}</span></td>
         <td class="num">${price == null ? "—" : money(price)}</td><td class="num pv">${money(cost)}</td>
         <td class="num pv">${price == null ? "—" : money(price - cost)}</td>
-        <td class="num">${p.stock}</td><td class="num">${r.reserved || ""}</td><td class="num">${r.sold || ""}</td>
+        <td class="num">${p.stock}</td><td class="num">${r.reserved || ""}</td>
+        <td class="num">${r.sold || ""}${r.inSets ? ` <span class="muted">+${r.inSets} in sets</span>` : ""}</td>
         <td class="num pv">${r.revenue ? money(r.revenue) : ""}</td><td class="num pv">${r.profit ? money(r.profit) : ""}</td></tr>`;
     }).join("");
+    const setRows = Object.values(perSet).map((s) => {
+      const pr = s.revenue - s.cost; sold += s.sold; revenue += s.revenue; profit += pr;
+      return `<tr><td><b class="cn">${esc(s.name)}</b></td><td></td><td class="num pv">${money(s.cost / s.sold)}</td><td class="num pv">${money(pr / s.sold)}</td>
+        <td></td><td></td><td class="num">${s.sold}</td><td class="num pv">${money(s.revenue)}</td><td class="num pv">${money(pr)}</td></tr>`;
+    }).join("");
     $("#inv").innerHTML = `<thead><tr><th>Product</th><th>Price</th><th>Cost</th><th>Margin</th><th>In stock</th><th>Reserved</th><th>Sold</th><th>Revenue</th><th>Profit</th></tr></thead>
-      <tbody>${rows}</tbody>
+      <tbody>${setRows}${rows}</tbody>
       <tfoot><tr><td>Total</td><td></td><td></td><td></td><td class="num">${units}</td><td></td><td class="num">${sold}</td><td class="num pv">${money(revenue)}</td><td class="num pv">${money(profit)}</td></tr></tfoot>`;
     const stat = (k, v, s, cls) => `<div class="stat ${cls || ""}"><span class="k">${k}</span><span class="v pv ${v < 0 ? "neg" : ""}">${money(v)}</span><span class="s">${s}</span></div>`;
     $("#stats").innerHTML =
       stat("Profit", profit, `${sold} sold · ${money(revenue)} taken in`, "hl") +
-      stat("In stock", stockVal, `${units} items at your prices`) +
+      stat("In stock", stockVal, `${units} items · single items at your prices`) +
       stat("Stock cost", stockCost, "what the shelf cost you") +
       stat("Open orders", openValue, `${openCount} waiting for pickup`) +
       stat("Spent", spent, "all stock bought so far");
@@ -335,6 +370,180 @@
     try { await API.saveSettings(patch); toast("Settings saved"); loadSettings(); }
     catch (ex) { err.textContent = "Couldn't save: " + ex.message; err.hidden = false; }
   });
+
+  // ---------- customers ----------
+  let custSearch = "";
+  async function loadCustomers() {
+    try { customers = await API.listCustomers(); renderCustomers(); }
+    catch (e) { $("#customers").innerHTML = `<div class="empty">Couldn't load customers: ${esc(e.message)}</div>`; }
+  }
+  function credText(username, password) {
+    return `${settings?.shop_name || "Garching Snack Shop"} 账号 / account\n网址 Website: ${location.origin}\n用户名 Username: ${username}\n密码 Password: ${password}`;
+  }
+  function showCred(title, username, password) {
+    $("#cred-title").textContent = title;
+    $("#cred-text").textContent = credText(username, password);
+    $("#cred").hidden = false; $("#cred").scrollIntoView({ block: "nearest" });
+  }
+  $("#cred-copy").onclick = () => copy($("#cred-text").textContent);
+  $("#cred-close").onclick = () => { $("#cred").hidden = true; $("#cred-text").textContent = ""; };
+  function renderCustomers() {
+    if (tab !== "customers") return;
+    const s = custSearch.toLowerCase();
+    const list = customers.filter((c) => !s || c.username.toLowerCase().includes(s) || c.wechat_id.toLowerCase().includes(s));
+    if (!list.length) { $("#customers").innerHTML = `<div class="empty">${customers.length ? "No match." : "No customers yet. Create the first account above."}</div>`; return; }
+    $("#customers").innerHTML = list.map((c) => {
+      const n = orders.filter((o) => o.customer_id === c.id && o.status !== "cancelled").length;
+      const locked = c.locked_until && new Date(c.locked_until) > new Date();
+      return `<div class="crow ${c.active ? "" : "off"}" data-cid="${c.id}">
+        <div><div class="u">${esc(c.username)}</div>
+          <div class="meta"><span>WeChat <b>${esc(c.wechat_id)}</b></span><span>${n} order${n === 1 ? "" : "s"}</span>
+            <span>${c.last_login_at ? "last login " + new Date(c.last_login_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "never logged in"}</span>
+            ${c.active ? "" : '<span class="flag">Switched off</span>'}${locked ? '<span class="flag warn">Locked 15 min (wrong passwords)</span>' : ""}
+            ${c.note ? `<span>“${esc(c.note)}”</span>` : ""}</div></div>
+        <div class="acts">
+          <button class="btn small" data-cact="pw">New password</button>
+          <button class="btn small ${c.active ? "ghost" : "primary"}" data-cact="toggle">${c.active ? "Switch off" : "Switch on"}</button>
+          <button class="btn small ghost" data-cact="edit">Edit</button>
+        </div>
+        <div class="editline" hidden>
+          <input data-ce="wechat_id" value="${esc(c.wechat_id)}" maxlength="40" aria-label="WeChat ID">
+          <input data-ce="note" value="${esc(c.note)}" maxlength="200" placeholder="Note" aria-label="Note">
+          <button class="btn small primary" data-cact="save">Save</button>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  $("#cust-search").addEventListener("input", (e) => { custSearch = e.target.value.trim(); renderCustomers(); });
+  $("#cust-form").addEventListener("submit", async (e) => {
+    e.preventDefault();
+    const err = $("#cu-err"), btn = $("#cu-save");
+    const u = $("#cu-user").value.trim(), w = $("#cu-wechat").value.trim();
+    if (!/^[A-Za-z0-9_.-]{3,30}$/.test(u)) { err.textContent = "Username: 3–30 letters, numbers, . _ or -"; err.hidden = false; return; }
+    if (w.length < 2) { err.textContent = "Enter their WeChat ID."; err.hidden = false; return; }
+    err.hidden = true; btn.disabled = true;
+    try {
+      const r = await API.createCustomer(u, w, $("#cu-note").value.trim());
+      showCred(`Account created for ${r.username}`, r.username, r.password);
+      $("#cu-user").value = ""; $("#cu-wechat").value = ""; $("#cu-note").value = "";
+      await loadCustomers();
+    } catch (ex) {
+      err.textContent = ex.code === "username_taken" ? "That username is already taken." : ex.code === "bad_username" ? "Username: 3–30 letters, numbers, . _ or -" : "Couldn't create: " + ex.message;
+      err.hidden = false;
+    } finally { btn.disabled = false; }
+  });
+  $("#customers").addEventListener("click", async (e) => {
+    const b = e.target.closest("[data-cact]"); if (!b) return;
+    const row = b.closest(".crow"), id = Number(row.dataset.cid), c = customers.find((x) => x.id === id);
+    const act = b.dataset.cact;
+    if (act === "edit") { $(".editline", row).hidden = !$(".editline", row).hidden; return; }
+    if (act === "pw" && b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Tap again: old password stops working"; return; }
+    b.disabled = true;
+    try {
+      if (act === "pw") { const r = await API.resetPassword(id); showCred(`New password for ${r.username}`, r.username, r.password); }
+      if (act === "toggle") { await API.setCustomerActive(id, !c.active); toast(c.active ? `${c.username} switched off and logged out` : `${c.username} switched on`); }
+      if (act === "save") {
+        const w = $("[data-ce=wechat_id]", row).value.trim();
+        if (w.length < 2) { toast("Enter their WeChat ID."); b.disabled = false; return; }
+        await API.updateCustomer(id, { wechat_id: w, note: $("[data-ce=note]", row).value.trim() }); toast("Saved");
+      }
+      await loadCustomers();
+    } catch (ex) { toast("Couldn't do that: " + ex.message); b.disabled = false; }
+  });
+
+  // ---------- menus (meal sets) ----------
+  async function loadBundles() {
+    try { bundles = await API.listBundles(); renderBundles(); }
+    catch (e) { $("#bundles").innerHTML = `<div class="empty">Couldn't load menus: ${esc(e.message)}</div>`; }
+  }
+  const removedSlots = {};
+  function slotRow(s) {
+    const opts = products.filter((p) => p.active && p.category === s.category);
+    const inStock = opts.filter((p) => p.stock > 0);
+    const units = inStock.reduce((a, p) => a + p.stock, 0);
+    const bad = units < (s.qty || 1);
+    return `<div class="slotrow" data-sid="${s.id || ""}">
+      <label class="mini"><span>Label (中文)</span><input data-s="label_cn" value="${esc(s.label_cn)}" maxlength="40"></label>
+      <label class="mini"><span>Label (English)</span><input data-s="label_en" value="${esc(s.label_en)}" maxlength="60"></label>
+      <label class="mini"><span>Choose from</span><select data-s="category">${catOptions(s.category)}</select></label>
+      <label class="mini"><span>How many</span><input data-s="qty" type="number" min="1" max="20" value="${s.qty || 1}" inputmode="numeric"></label>
+      <label class="check"><input type="checkbox" data-s="is_gift" ${s.is_gift ? "checked" : ""}> Free gift</label>
+      <button class="btn small ghost" type="button" data-sremove>Remove</button>
+      <div class="avail ${bad ? "bad" : ""}">${opts.length ? `${inStock.length} of ${opts.length} choices in stock (${units} items): ${inStock.map((p) => esc(p.name_cn || p.name_en)).join(", ") || "none"}` : "No products in this category yet. Add one under Products and pick this category."}${bad && opts.length ? " · not enough stock, so this menu shows as sold out" : bad ? " The menu shows as sold out until then." : ""}</div>
+    </div>`;
+  }
+  function renderBundles() {
+    if (tab !== "menus") return;
+    if (!bundles.length) { $("#bundles").innerHTML = `<div class="empty">No menus yet.</div>`; return; }
+    $("#bundles").innerHTML = bundles.map((b) => {
+      const slots = [...(b.bundle_slots || [])].sort((x, y) => x.sort - y.sort || x.id - y.id);
+      const cost = slots.reduce((a, s) => {
+        const c = products.filter((p) => p.active && p.category === s.category).map((p) => Number(p.cost));
+        return a + (c.length ? Math.max(...c) : 0) * s.qty;
+      }, 0);
+      return `<div class="bcard ${b.active && b.price != null ? "" : "off"}" data-bid="${esc(b.id)}">
+        <div class="bfields">
+          <label class="mini"><span>Name (中文)</span><input data-b="name_cn" value="${esc(b.name_cn)}" maxlength="80"></label>
+          <label class="mini"><span>Name (English)</span><input data-b="name_en" value="${esc(b.name_en)}" maxlength="100"></label>
+          <label class="mini"><span>Short description</span><input data-b="description" value="${esc(b.description)}" maxlength="200"></label>
+          <label class="mini"><span>Price €</span><input data-b="price" inputmode="decimal" value="${b.price == null ? "" : Number(b.price).toFixed(2)}" placeholder="— not in shop"></label>
+        </div>
+        <div class="slots">${slots.map(slotRow).join("")}</div>
+        <div class="head">
+          <button class="btn small" type="button" data-addslot>+ Add a choice</button>
+          <label class="check"><input type="checkbox" data-b="active" ${b.active ? "checked" : ""}> In shop</label>
+          <span class="muted small pv">Highest possible cost ≈ ${money(cost)}${b.price != null ? ` · lowest profit ≈ ${money(Number(b.price) - cost)}` : ""}</span>
+          <span class="rowsave" style="margin-left:auto"><span class="saved" hidden>Saved</span><button class="btn small primary" type="button" data-bsave>Save menu</button></span>
+        </div>
+      </div>`;
+    }).join("");
+  }
+  $("#bundles").addEventListener("change", (e) => {
+    const sel = e.target.closest("[data-s=category]"); if (!sel) return;
+    const row = sel.closest(".slotrow");
+    const s = readSlot(row); const tmp = document.createElement("div"); tmp.innerHTML = slotRow(s);
+    row.replaceWith(tmp.firstElementChild);
+  });
+  function readSlot(row, i) {
+    return {
+      id: row.dataset.sid ? Number(row.dataset.sid) : null,
+      label_cn: $("[data-s=label_cn]", row).value.trim(), label_en: $("[data-s=label_en]", row).value.trim(),
+      category: $("[data-s=category]", row).value, qty: parseInt($("[data-s=qty]", row).value, 10) || 0,
+      is_gift: $("[data-s=is_gift]", row).checked, sort: (i ?? 0) * 10
+    };
+  }
+  $("#bundles").addEventListener("click", async (e) => {
+    const card = e.target.closest(".bcard"); if (!card) return;
+    const bid = card.dataset.bid;
+    if (e.target.closest("[data-addslot]")) {
+      const tmp = document.createElement("div"); tmp.innerHTML = slotRow({ label_cn: "", label_en: "", category: "drink", qty: 1, is_gift: false });
+      $(".slots", card).appendChild(tmp.firstElementChild); return;
+    }
+    const rm = e.target.closest("[data-sremove]");
+    if (rm) { const row = rm.closest(".slotrow"); if (row.dataset.sid) (removedSlots[bid] ||= []).push(Number(row.dataset.sid)); row.remove(); return; }
+    const sv = e.target.closest("[data-bsave]"); if (!sv) return;
+    const price = num($("[data-b=price]", card).value);
+    if (Number.isNaN(price) || (price !== null && price < 0)) return toast("Price must be a number, e.g. 7.90");
+    const slots = $$(".slotrow", card).map(readSlot);
+    if (!slots.length) return toast("Add at least one choice.");
+    if (slots.some((s) => !s.label_cn && !s.label_en)) return toast("Give every choice a label.");
+    if (slots.some((s) => !(s.qty >= 1 && s.qty <= 20))) return toast("How many must be 1–20.");
+    sv.disabled = true;
+    try {
+      await API.updateBundle(bid, { name_cn: $("[data-b=name_cn]", card).value.trim(), name_en: $("[data-b=name_en]", card).value.trim(),
+        description: $("[data-b=description]", card).value.trim(), price, active: $("[data-b=active]", card).checked });
+      await API.saveSlots(bid, slots, removedSlots[bid] || []);
+      removedSlots[bid] = [];
+      await loadBundles();
+      const r = $(`.bcard[data-bid="${CSS.escape(bid)}"] .saved`); if (r) { r.hidden = false; setTimeout(() => (r.hidden = true), 2000); }
+    } catch (ex) { toast("Couldn't save: " + ex.message); sv.disabled = false; }
+  });
+  $("#add-bundle").onclick = async () => {
+    try {
+      await API.addBundle({ id: "set-" + Date.now().toString(36), name_cn: "新套餐", name_en: "New menu", price: null, active: true, sort: (bundles.length + 1) * 10 });
+      await loadBundles(); toast("Menu added. Add its choices and a price, then Save.");
+    } catch (ex) { toast("Couldn't add: " + ex.message); }
+  };
 
   boot();
 })();

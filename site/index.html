@@ -17,7 +17,7 @@
 <header class="sign">
   <div class="wrap">
     <h1><span id="shop-name">Garching Snack Shop</span><small>TUM Garching · 货到付款 pay on pickup</small></h1>
-    <div class="who" id="who" hidden><span>微信 WeChat:</span><b id="who-id"></b><button class="linkish" id="logout" type="button">换 Change</button></div>
+    <div class="who" id="who" hidden><b id="who-id"></b><button class="linkish" id="logout" type="button">退出 Log out</button></div>
     <button class="btn small" id="open-orders" type="button" hidden>我的订单 My orders</button>
   </div>
 </header>
@@ -25,17 +25,19 @@
 <!-- ============ login ============ -->
 <main id="login-view" class="login" hidden>
   <form class="card" id="login-form" novalidate>
-    <h2><span class="cn">输入你的微信号</span><br>Enter your WeChat ID</h2>
-    <p class="hint">I use it to message you when your order is ready. Your orders stay on this phone.</p>
-    <label class="field"><span>微信号 WeChat ID</span>
-      <input id="login-id" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="40" placeholder="e.g. wxid_abc123" required>
+    <h2><span class="cn">登录</span> · Log in</h2>
+    <label class="field"><span>用户名 Username</span>
+      <input id="login-user" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" required>
+    </label>
+    <label class="field"><span>密码 Password</span>
+      <input id="login-pass" type="password" autocomplete="current-password" maxlength="64" required>
     </label>
     <div class="err" id="login-err" hidden></div>
-    <button class="btn primary block" type="submit">进入 Continue</button>
+    <button class="btn primary block" type="submit" id="login-btn">登录 Log in</button>
   </form>
   <section class="card">
-    <h3><span class="cn">还没加我微信？</span> Haven't added me on WeChat yet?</h3>
-    <p class="hint">Add me first so I can reach you about your order.</p>
+    <h3><span class="cn">还没有账号？</span><br>No account yet?</h3>
+    <p class="hint"><span class="cn">先加我微信，我会帮你开通账号并把登录信息发给你。</span><br>Add me on WeChat first. I'll set up an account for you and send you the login details.</p>
     <div class="wechat-box">
       <span class="id wechat-contact">guest19191231</span>
       <button class="btn small copy-wechat" type="button">复制 Copy</button>
@@ -48,10 +50,15 @@
   <div class="wrap">
     <div class="notice" id="notice" hidden></div>
     <div class="strip">
-      <span><b>Garching campus only</b> · pick a meeting spot at checkout</span>
+      <span><b id="area-name">Garching Forschungszentrum</b> only · we agree on the exact spot on WeChat</span>
       <span>Pay on pickup: <b>cash, PayPal or WeChat Pay</b></span>
       <span>Sold out? <b>Preorder</b> at least <b class="num" id="pre-days">5</b> days ahead</span>
     </div>
+    <section id="sets-section" hidden>
+      <h2 class="sec"><span class="cn">套餐</span> Meal sets</h2>
+      <div class="sets" id="sets"></div>
+    </section>
+    <h2 class="sec" id="shelf-title"><span class="cn">单品</span> Single items</h2>
     <div class="shelf" id="shelf"><div class="empty">Loading…</div></div>
   </div>
 </main>
@@ -72,9 +79,10 @@
       <div class="totalrow"><span>合计 Total</span><span class="num" id="cart-sum">€0.00</span></div>
 
       <form id="checkout" class="lines" novalidate>
-        <label class="field"><span><span class="cn">见面地点</span> · Meeting spot (Garching campus)</span>
-          <select id="co-location" required></select>
-        </label>
+        <div class="field" id="co-location-wrap"><span><span class="cn">取货区域</span> · Pickup area</span>
+          <div class="area" id="co-area"></div>
+          <select id="co-location" hidden></select>
+        </div>
         <label class="field" id="co-date-wrap" hidden><span><span class="cn">预订日期</span> · Preorder pickup date</span>
           <input type="date" id="co-date">
           <small class="hint" id="co-date-hint"></small>
@@ -90,6 +98,18 @@
         <div class="err" id="co-err" hidden></div>
         <button class="btn primary block" type="submit" id="co-submit">下单 Place order</button>
       </form>
+    </div>
+  </div>
+</div>
+
+<!-- ============ choose a meal set ============ -->
+<div class="overlay" id="set-sheet" hidden>
+  <div class="sheet" role="dialog" aria-modal="true" aria-labelledby="set-title">
+    <header><h2 id="set-title">套餐</h2><button class="x" type="button" data-close aria-label="Close">×</button></header>
+    <div class="body">
+      <div id="set-slots" class="lines"></div>
+      <div class="err" id="set-err" hidden></div>
+      <button class="btn primary block" type="button" id="set-add">加入购物车 Add to cart</button>
     </div>
   </div>
 </div>

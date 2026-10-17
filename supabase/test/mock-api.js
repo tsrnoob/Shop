@@ -1,67 +1,109 @@
-// In-memory stand-in for api.js, for clicking through the pages without Supabase.
+// In-memory stand-in for api.js (v2: accounts + meal sets), for clicking through the pages without Supabase.
 (function () {
-  const today = () => { const d = new Date(); d.setHours(0, 0, 0, 0); return d; };
-  const iso = (d) => d.toISOString().slice(0, 10);
-  const plus = (n) => { const d = today(); d.setDate(d.getDate() + n + 1); return iso(d).slice(0, 10); };
+  const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
-  const S = {
-    owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "guest19191231",
-    locations: ["Mensa Garching", "MI building (Maths & Informatics), main entrance", "U6 Garching-Forschungszentrum station", "Maschinenwesen (MW), main entrance"],
-    preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null
-  };
+  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "guest19191231",
+    locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null };
   const P = [
-    ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 4.50, 3.68, 2],
-    ["5886", "自嗨锅 川式卤肉盖浇饭", "Zihaiguo Sichuan Braised Pork Rice (self-heating)", "Self-heating rice box · 262 g", 4.90, 3.57, 2],
-    ["5888", "小龙坎 自热蔬菜火锅 酸辣金汤味", "Shoo Loong Kan Veg Hot Pot, Hot & Sour Golden Soup", "Self-heating · 312 g", 4.20, 3.02, 0],
-    ["5891", "小龙坎 自热蔬菜火锅 麻辣清油味", "Shoo Loong Kan Veg Hot Pot, Spicy Clear Oil", "Self-heating · 312 g", 4.20, 3.02, 2],
-    ["5889", "卧龙锅巴 麻辣味", "Wolong Crispy Rice Crackers, Spicy Mala", "Bag · 200 g", 3.00, 2.22, 2],
-    ["5890", "良品铺子 小米锅巴 麻辣味", "Bestore Millet Crispy Rice, Spicy", "Bag · 90 g", 1.80, 1.06, 5],
-    ["wl252", "卫龙 魔芋爽 酸辣素毛肚", "Weilong Konjac Shuang, Sour & Hot", "Bag · 252 g (28 pieces)", 3.80, 2.76, 1],
-    ["5896", "喜之郎 CiCi 果汁果冻 芒果味", "Strong CiCi Drinkable Jelly, Mango", "Drinkable jelly pouch", 1.50, 1.02, 10],
-    ["wlmala", "卫龙 魔芋爽 麻辣素毛肚", "Weilong Konjac Shuang, Numbing & Spicy (box)", "Box · +20% bonus pack", null, 4.46, 1]
-  ].map(([id, cn, en, meta, price, cost, stock], i) => ({ id, name_cn: cn, name_en: en, meta, image_url: "img/" + id + ".jpg", price, cost, stock, purchased: Math.max(stock, 2), active: true, preorder_ok: true, sort: i * 10, created_at: new Date().toISOString() }));
-  const O = []; let oid = 1;
+    ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
+    ["5886", "自嗨锅 川式卤肉盖浇饭", "Zihaiguo Sichuan Braised Pork Rice (self-heating)", "Self-heating rice box · 262 g", 5.00, 3.57, 2, "main", true],
+    ["5888", "小龙坎 自热蔬菜火锅 酸辣金汤味", "Shoo Loong Kan Veg Hot Pot, Hot & Sour Golden Soup", "Self-heating · 312 g", 4.50, 3.02, 0, "main", true],
+    ["5892", "自嗨锅 菌菇牛肉煲仔饭", "Zihaiguo Mushroom Beef Claypot Rice (self-heating)", "Self-heating cup · 245 g", 4.00, 2.63, 2, "main", true],
+    ["5889", "卧龙锅巴 麻辣味", "Wolong Crispy Rice Crackers, Spicy Mala", "Bag · 200 g", 3.00, 2.22, 2, "guoba", true],
+    ["5890", "良品铺子 小米锅巴 麻辣味", "Bestore Millet Crispy Rice, Spicy", "Bag · 90 g", 2.00, 1.06, 4, "guoba", true],
+    ["5896", "喜之郎 CiCi 果汁果冻 芒果味", "Strong CiCi Drinkable Jelly, Mango", "Pouch", 2.50, 1.02, 9, "drink", true],
+    ["wl252", "卫龙 魔芋爽 酸辣素毛肚", "Weilong Konjac Shuang, Sour & Hot", "Bag · 252 g (28 pieces)", null, 2.76, 1, "snack", true],
+    ["wl-pc-sour", "卫龙 魔芋爽 酸辣 (单包)", "Weilong Konjac Shuang, Sour & Hot (single pack)", "Single pack · for meal sets", null, 0.10, 20, "konjac", false],
+    ["wl-pc-spicy", "卫龙 魔芋爽 香辣 (单包)", "Weilong Konjac Shuang, Hot & Spicy (single pack)", "Single pack · for meal sets", null, 0.18, 12, "konjac", false],
+    ["wl-pc-mala", "卫龙 魔芋爽 麻辣 (单包)", "Weilong Konjac Shuang, Numbing & Spicy (single pack)", "Single pack · for meal sets", null, 0.19, 0, "konjac", false]
+  ].map(([id, cn, en, meta, price, cost, stock, category, on_shelf], i) => ({ id, name_cn: cn, name_en: en, meta,
+    image_url: "img/" + (id.startsWith("wl-pc") ? { "wl-pc-sour": "wl252", "wl-pc-spicy": "wl360", "wl-pc-mala": "wlmala" }[id] : id) + ".jpg",
+    price, cost, stock, purchased: Math.max(stock, 2), active: true, preorder_ok: on_shelf, sort: i * 10, category, on_shelf, created_at: new Date().toISOString() }));
+  const B = [
+    { id: "set-a", name_cn: "套餐A：饭/火锅 + 饮料 + 送3包魔芋爽", name_en: "Set A: rice or hot pot + drink + 3 free konjac packs", description: "", price: 7.90, active: true, sort: 10,
+      bundle_slots: [{ id: 1, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10 },
+                     { id: 2, label_cn: "饮料", label_en: "Drink", category: "drink", qty: 1, is_gift: false, sort: 20 },
+                     { id: 3, label_cn: "魔芋爽 ×3", label_en: "Konjac × 3", category: "konjac", qty: 3, is_gift: true, sort: 30 }] },
+    { id: "set-b", name_cn: "套餐B：饭/火锅 + 锅巴 + 送550ml矿泉水", name_en: "Set B: rice or hot pot + guoba + free 550 ml water", description: "", price: 7.50, active: true, sort: 20,
+      bundle_slots: [{ id: 4, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10 },
+                     { id: 5, label_cn: "锅巴", label_en: "Guoba", category: "guoba", qty: 1, is_gift: false, sort: 20 },
+                     { id: 6, label_cn: "矿泉水", label_en: "Water", category: "water", qty: 1, is_gift: true, sort: 30 }] }
+  ];
+  let slotSeq = 7;
+  const C = [{ id: 1, username: "lin2002", wechat_id: "wxid_lin2002", note: "MI", pw: "test", active: true, failed_logins: 0, locked_until: null, last_login_at: null, created_at: new Date().toISOString() }];
+  const sessions = JSON.parse(sessionStorage.getItem("mock.sessions") || "{}");
+  const saveSess = () => sessionStorage.setItem("mock.sessions", JSON.stringify(sessions));
+  const O = []; let oid = 1, ibid = 1;
   const code = () => Math.random().toString(36).slice(2, 7).toUpperCase();
-  function place(o, owner) {
-    const wid = (o.wechat_id || "").trim();
-    if (wid.length < 2) err("bad_wechat");
-    if (!owner && !S.locations.includes(o.location)) err("bad_location");
-    if (!o.items.length) err("empty_cart");
-    const hasPre = o.items.some((i) => i.preorder);
-    if (hasPre && (!o.wanted_date || o.wanted_date < plus(S.preorder_days - 1))) err("bad_preorder_date");
-    for (const l of o.items) { const p = P.find((x) => x.id === l.id); if (!p || p.price == null) err("unavailable:" + l.id); if (!l.preorder && p.stock < l.qty) err("out_of_stock:" + l.id); }
-    const items = o.items.map((l, k) => { const p = P.find((x) => x.id === l.id); if (!l.preorder) p.stock -= l.qty; return { id: oid * 100 + k, product_id: p.id, name_cn: p.name_cn, name_en: p.name_en, qty: l.qty, preorder: !!l.preorder, unit_price: p.price, unit_cost: p.cost }; });
-    const ord = { id: oid++, code: code(), token: crypto.randomUUID(), wechat_id: wid, location: o.location, note: o.note || "", wanted_date: hasPre ? o.wanted_date : null, status: o.status || "new", total: items.reduce((a, i) => a + i.qty * i.unit_price, 0), is_offline: !!owner, created_at: o.created_at || new Date().toISOString(), order_items: items };
+  const sessCust = (t) => { const c = C.find((x) => x.id === sessions[t]); if (!c || !c.active) err("login_required"); return c; };
+  const wait = (v) => new Promise((r) => setTimeout(() => r(JSON.parse(JSON.stringify(v ?? null))), 100));
+  function place(c, o, extra) {
+    const prod = (id) => P.find((p) => p.id === id);
+    const items = [], obs = []; let total = 0;
+    for (const l of o.items) {
+      if (l.bundle) {
+        const b = B.find((x) => x.id === l.bundle); const obid = ibid++;
+        obs.push({ id: obid, bundle_id: b.id, name_cn: b.name_cn, name_en: b.name_en, qty: l.qty, unit_price: b.price }); total += l.qty * b.price;
+        for (const s of b.bundle_slots) {
+          const picks = l.picks[s.id] || {}; const sum = Object.values(picks).reduce((a, n) => a + n, 0);
+          if (sum !== s.qty) err("bad_picks:" + b.id);
+          for (const [pid, n] of Object.entries(picks)) { const p = prod(pid); if (p.stock < n * l.qty) err("out_of_stock:" + pid);
+            p.stock -= n * l.qty; items.push({ id: ibid++, product_id: pid, name_cn: p.name_cn, name_en: p.name_en, qty: n * l.qty, preorder: false, unit_price: 0, unit_cost: p.cost, order_bundle_id: obid, is_gift: s.is_gift }); }
+        }
+      } else {
+        const p = prod(l.id); if (!l.preorder) { if (p.stock < l.qty) err("out_of_stock:" + l.id); p.stock -= l.qty; }
+        items.push({ id: ibid++, product_id: p.id, name_cn: p.name_cn, name_en: p.name_en, qty: l.qty, preorder: !!l.preorder, unit_price: p.price, unit_cost: p.cost, order_bundle_id: null, is_gift: false });
+        total += l.qty * p.price;
+      }
+    }
+    const ord = { id: oid++, code: code(), wechat_id: c.wechat_id, customer_id: c.id, location: o.location || S.locations[0], note: o.note || "",
+      wanted_date: o.items.some((l) => l.preorder) ? o.wanted_date : null, status: "new", total, is_offline: false,
+      created_at: new Date().toISOString(), order_items: items, order_bundles: obs, ...extra };
     O.unshift(ord); return ord;
   }
-  // a few sample orders for the owner view
-  place({ wechat_id: "wxid_lin2002", location: "Mensa Garching", note: "Weekdays after 14:00", items: [{ id: "5890", qty: 2 }, { id: "5896", qty: 3 }] });
-  place({ wechat_id: "chen_yu_tum", location: "U6 Garching-Forschungszentrum station", items: [{ id: "5888", qty: 2, preorder: true }], wanted_date: plus(5) });
-  const d = place({ wechat_id: "mia.zhang", location: "MI building (Maths & Informatics), main entrance", items: [{ id: "5885", qty: 1 }], created_at: new Date(Date.now() - 864e5).toISOString() }); d.status = "delivered";
-  O[0].created_at = new Date(Date.now() - 6 * 60000).toISOString();
+  place(C[0], { note: "Weekdays after 14:00", items: [{ bundle: "set-a", qty: 1, picks: { 1: { "5886": 1 }, 2: { "5896": 1 }, 3: { "wl-pc-sour": 2, "wl-pc-spicy": 1 } } }, { id: "5890", qty: 1 }] });
   const cancel = (o) => { for (const i of o.order_items) if (!i.preorder) P.find((p) => p.id === i.product_id).stock += i.qty; o.status = "cancelled"; };
-  const wait = (v) => new Promise((r) => setTimeout(() => r(JSON.parse(JSON.stringify(v ?? null))), 120));
   const signedIn = () => sessionStorage.getItem("mock.owner") === "1";
 
   window.API = {
     configured: true,
-    getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days - 1) }, products: P.filter((p) => p.active && p.price != null).map(({ cost, purchased, ...p }) => p) }),
-    placeOrder: async (o) => { await wait(); const r = place(o); return { code: r.code, token: r.token, total: r.total, wanted_date: r.wanted_date }; },
-    getMyOrders: (t) => wait(O.filter((o) => t.includes(o.token)).map((o) => ({ ...o, items: o.order_items }))),
-    cancelMyOrder: async (t) => { const o = O.find((x) => x.token === t); if (!o) err("not_found"); if (o.status !== "new") err("cannot_cancel"); cancel(o); return wait({ code: o.code, status: "cancelled" }); },
+    getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
+      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => p),
+      bundles: B.filter((b) => b.active && b.price != null).map((b) => ({ ...b, slots: b.bundle_slots })) }),
+    async login(u, pw) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
+      if (!c || c.pw !== pw) err("bad_login"); if (!c.active) err("account_disabled");
+      const t = crypto.randomUUID(); sessions[t] = c.id; saveSess(); c.last_login_at = new Date().toISOString(); return { token: t, username: c.username, wechat_id: c.wechat_id }; },
+    me: async (t) => { await wait(); const c = sessCust(t); return { username: c.username, wechat_id: c.wechat_id }; },
+    logout: async (t) => { delete sessions[t]; saveSess(); },
+    placeOrder: async (o) => { await wait(); const c = sessCust(o.session); const r = place(c, o); return { code: r.code, total: r.total, wanted_date: r.wanted_date, location: r.location }; },
+    myOrders: async (t) => { const c = sessCust(t); return wait(O.filter((o) => o.customer_id === c.id).map((o) => ({ ...o, items: o.order_items, bundles: o.order_bundles }))); },
+    cancelOrder: async (t, code) => { const c = sessCust(t); const o = O.find((x) => x.code === code && x.customer_id === c.id); if (o.status !== "new") err("cannot_cancel"); cancel(o); return wait({ status: "cancelled" }); },
+
     session: async () => (signedIn() ? { user: { email: S.owner_email } } : null),
     signIn: async (e, p) => { if (e !== S.owner_email || p !== "test") err("Invalid login credentials"); sessionStorage.setItem("mock.owner", "1"); },
     signOut: async () => sessionStorage.removeItem("mock.owner"),
     isOwner: async () => signedIn(),
     listOrders: () => wait(O),
-    setStatus: async (id, st) => { const o = O.find((x) => x.id === id); if (o.status === "cancelled") err("already_cancelled"); if (st === "cancelled") cancel(o); else o.status = st; return wait(); },
+    setStatus: async (id, st) => { const o = O.find((x) => x.id === id); if (st === "cancelled") cancel(o); else o.status = st; return wait(); },
     listProducts: () => wait([...P].sort((a, b) => a.sort - b.sort)),
     updateProduct: async (id, patch) => { Object.assign(P.find((p) => p.id === id), patch); return wait(); },
     setStock: async (id, from, to) => { const p = P.find((x) => x.id === id); if (p.stock !== from) err("stock_changed"); p.stock = to; return wait(); },
     addProduct: async (row) => { P.push({ created_at: new Date().toISOString(), ...row }); return wait(); },
     restock: async (id, n) => { const p = P.find((x) => x.id === id); p.stock += n; p.purchased += n; return wait(); },
-    recordSale: async (id, qty, price, note) => { const p = P.find((x) => x.id === id); const keep = p.price; p.price = price; place({ wechat_id: "(offline)", location: "Offline sale", note, items: [{ id, qty }], status: "delivered" }, true); p.price = keep; return wait(); },
+    recordSale: async () => wait(),
     uploadImage: async (f) => URL.createObjectURL(f),
+    listCustomers: () => wait(C.map(({ pw, ...c }) => c)),
+    createCustomer: async (u, w, note) => { if (C.some((c) => c.username.toLowerCase() === u.toLowerCase())) err("username_taken");
+      const pw = Math.random().toString(36).slice(2, 10); C.unshift({ id: C.length + 1, username: u, wechat_id: w, note, pw, active: true, failed_logins: 0, locked_until: null, last_login_at: null, created_at: new Date().toISOString() });
+      return wait({ username: u, password: pw }); },
+    resetPassword: async (id) => { const c = C.find((x) => x.id === id); c.pw = Math.random().toString(36).slice(2, 10); return wait({ username: c.username, password: c.pw }); },
+    setCustomerActive: async (id, a) => { C.find((x) => x.id === id).active = a; return wait(); },
+    updateCustomer: async (id, patch) => { Object.assign(C.find((x) => x.id === id), patch); return wait(); },
+    listBundles: () => wait(B),
+    updateBundle: async (id, patch) => { Object.assign(B.find((b) => b.id === id), patch); return wait(); },
+    addBundle: async (row) => { B.push({ ...row, description: "", bundle_slots: [] }); return wait(); },
+    saveSlots: async (bid, slots, removed) => { const b = B.find((x) => x.id === bid);
+      b.bundle_slots = slots.map((s) => ({ ...s, id: s.id || slotSeq++ })).filter((s) => !removed.includes(s.id)); return wait(); },
     getSettings: () => wait(S),
     saveSettings: async (patch) => { Object.assign(S, patch); return wait(); }
   };
