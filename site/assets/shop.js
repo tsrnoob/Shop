@@ -198,50 +198,78 @@
   }
 
   // ---------- meal sets ----------
+  // One card per price across all menus: menus that cost the same are stacked on one card,
+  // and the customer picks which one (and its items) after opening it.
+  function priceGroups() {
+    const m = new Map();
+    for (const b of shop.bundles) for (const tier of tiersOf(b)) {
+      const k = tier.price.toFixed(2);
+      if (!m.has(k)) m.set(k, []);
+      m.get(k).push({ b, tier });
+    }
+    return [...m.entries()].sort((x, y) => Number(x[0]) - Number(y[0])).map(([k, members]) => ({ price: Number(k), members }));
+  }
+  // items shown for one menu at one price: paid choices limited to that price, gifts as they are
+  function memberLines(b, tier) {
+    const P = byId();
+    let si = 0;
+    const perSlot = paidSlots(b).map((s, i) => [...new Set(tier.combos.map((c) => c.p[i]))].map((id) => P[id]).filter(Boolean));
+    return b.slots.map((s) => {
+      if (s.is_gift) return `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> <span class="gift">送 free</span></li>`;
+      const items = perSlot[si++];
+      return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span>: <span class="choices">${items.map((p) => esc(p.name_cn || p.name_en)).join(" / ")}</span></li>`;
+    }).join("");
+  }
+  function memberImgs(b, tier) {
+    const P = byId();
+    const first = tier.combos.find((c) => comboInStock(b, c)) || tier.combos[0];
+    return [...first.p.map((id) => P[id]), ...giftSlots(b).map((s) => optsOf(s).find((p) => p.stock > 0) || optsOf(s)[0])].filter(Boolean);
+  }
   function renderSets() {
-    const cards = [];
-    for (const b of shop.bundles) {
-      for (const tier of tiersOf(b)) {
-        const ok = tierAvailable(b, tier);
-        const P = byId();
-        // what this price group offers in each paid choice
-        const perSlot = paidSlots(b).map((s, i) => [...new Set(tier.combos.map((c) => c.p[i]))].map((id) => P[id]).filter(Boolean));
-        const saves = tier.combos.map((c) => Number(c.retail) - Number(c.price));
-        const maxSave = Math.max(...saves), minSave = Math.min(...saves);
-        const saveTxt = maxSave > 0.005 ? (Math.abs(maxSave - minSave) < 0.005 ? `省 ${money(maxSave)} · save ${money(maxSave)}` : `最多省 ${money(maxSave)} · save up to ${money(maxSave)}`) : "";
-        const first = tier.combos.find((c) => comboInStock(b, c)) || tier.combos[0];
-        const imgs = [...first.p.map((id) => P[id]), ...giftSlots(b).map((s) => optsOf(s).find((p) => p.stock > 0) || optsOf(s)[0])].filter(Boolean).slice(0, 3);
-        let si = 0;
-        const lines = b.slots.map((s) => {
-          if (s.is_gift) return `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> <span class="gift">送 free</span></li>`;
-          const items = perSlot[si++];
-          return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span>: <span class="choices">${items.map((p) => esc(p.name_cn || p.name_en)).join(" / ")}</span></li>`;
-        }).join("");
-        cards.push(`<article class="set ${ok ? "" : "soldout"}">
+    const cards = priceGroups().map((g) => {
+      const avail = g.members.map((m) => tierAvailable(m.b, m.tier));
+      const ok = avail.some(Boolean);
+      const saves = g.members.flatMap((m) => m.tier.combos.map((c) => Number(c.retail) - Number(c.price)));
+      const maxSave = Math.max(...saves), minSave = Math.min(...saves);
+      const saveTxt = maxSave > 0.005 ? (Math.abs(maxSave - minSave) < 0.005 ? `省 ${money(maxSave)} · save ${money(maxSave)}` : `最多省 ${money(maxSave)} · save up to ${money(maxSave)}`) : "";
+      // pictures: take turns between the stacked menus (available ones first), no repeats, at most 3
+      const lists = g.members.map((m, i) => ({ imgs: memberImgs(m.b, m.tier), ok: avail[i] })).sort((x, y) => y.ok - x.ok).map((x) => x.imgs);
+      const imgs = [];
+      for (let k = 0; imgs.length < 3 && lists.some((l) => l[k]); k++) for (const l of lists) if (l[k] && !imgs.includes(l[k]) && imgs.length < 3) imgs.push(l[k]);
+      const body = g.members.length === 1
+        ? `<div class="n-cn">${esc(g.members[0].b.name_cn)}</div><div class="n-en">${esc(g.members[0].b.name_en)}</div><ul class="slots">${memberLines(g.members[0].b, g.members[0].tier)}</ul>`
+        : `<div class="n-cn">套餐 · ${g.members.length} 选 1 <span class="n-en">Meal set, pick 1 of ${g.members.length}</span></div>`
+          + g.members.map((m, i) => `<div class="member ${avail[i] ? "" : "out"}">
+              <div class="sn">${esc(m.b.name_cn)}${avail[i] ? "" : ' <span class="muted">· 售罄 sold out</span>'}</div>
+              <ul class="slots">${memberLines(m.b, m.tier)}</ul></div>`).join('<div class="or">或 or</div>');
+      return `<article class="set ${ok ? "" : "soldout"}">
           <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
           <div class="info">
-            <div class="n-cn">${esc(b.name_cn)}</div>
-            <div class="n-en">${esc(b.name_en)}</div>
-            <ul class="slots">${lines}</ul>
-            <div class="row"><span class="price-wrap"><span class="tag">${money(tier.price)}</span>${saveTxt ? `<span class="save">${saveTxt}</span>` : ""}</span>
-              ${ok ? `<button class="btn small primary" type="button" data-set="${esc(b.id)}" data-tier="${tier.price.toFixed(2)}">选择 Choose</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
+            ${body}
+            <div class="row"><span class="price-wrap"><span class="tag">${money(g.price)}</span>${saveTxt ? `<span class="save">${saveTxt}</span>` : ""}</span>
+              ${ok ? `<button class="btn small primary" type="button" data-setprice="${g.price.toFixed(2)}">选择 Choose</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
           </div>
-        </article>`);
-      }
-    }
+        </article>`;
+    });
     $("#sets-section").hidden = !cards.length;
     $("#sets").innerHTML = cards.join("");
   }
 
-  // configurator for one price group
-  let picking = null; // {b, tier, picks: {slotId: {pid: n}}}
-  function openSet(b, tier) {
-    picking = { b, tier, picks: {} };
+  // configurator for one price: pick a menu (when several share the price), then its items
+  let picking = null; // {group, mi, b, tier, picks: {slotId: {pid: n}}}
+  function openSet(group) {
+    const mi = Math.max(0, group.members.findIndex((m) => tierAvailable(m.b, m.tier)));
+    picking = { group };
+    setMember(mi);
+    $("#set-title").textContent = group.members.length > 1 ? `套餐 Meal set · ${money(group.price)}` : `${name(group.members[0].b)} · ${money(group.price)}`;
+    openSheet("#set-sheet");
+  }
+  function setMember(mi) {
+    const { b, tier } = picking.group.members[mi];
+    Object.assign(picking, { mi, b, tier, picks: {} });
     for (const s of b.slots) picking.picks[s.id] = {};
     autoPick();
-    $("#set-title").textContent = `${name(b)} · ${money(tier.price)}`;
     renderPicker();
-    openSheet("#set-sheet");
   }
   // paid options still possible in this price group, given what's already picked in the other paid choices
   function paidOptions(i) {
@@ -272,10 +300,18 @@
   }
   function slotCount(sid) { return Object.values(picking.picks[sid]).reduce((a, c) => a + c, 0); }
   function renderPicker() {
-    const { b, tier } = picking;
+    const { b, tier, group, mi } = picking;
     const P = byId();
     let pi = -1;
-    $("#set-slots").innerHTML = b.slots.map((s) => {
+    // which menu, when several share this price
+    const chooser = group.members.length < 2 ? "" : `<div class="slot"><div class="slot-head"><b>选择套餐</b> <span class="muted">Choose a set</span></div><div class="opts">${group.members.map((m, i) => {
+      const ok = tierAvailable(m.b, m.tier), img = memberImgs(m.b, m.tier)[0];
+      return `<button type="button" class="opt ${i === mi ? "on" : ""} ${ok ? "" : "out"}" ${ok ? `data-member="${i}"` : "disabled"}>
+        <img src="${esc(img?.image_url || "")}" alt="">
+        <span class="t"><span class="n-cn">${esc(m.b.name_cn)}</span><span class="sub">${ok ? esc(m.b.name_en) : "售罄 sold out"}</span></span>
+        <span class="radio ${i === mi ? "on" : ""}" aria-hidden="true"></span></button>`;
+    }).join("")}</div></div>`;
+    $("#set-slots").innerHTML = chooser + b.slots.map((s) => {
       const isPaid = !s.is_gift; if (isPaid) pi++;
       const opts = isPaid ? allPaidOptions(pi).map((id) => P[id]).filter(Boolean) : optsOf(s);
       const possible = isPaid ? paidOptions(pi) : null;
@@ -312,6 +348,8 @@
     let n = 0; for (const [s, picks] of Object.entries(picking.picks)) if (s !== String(sid)) n += picks[pid] || 0; return n;
   }
   $("#set-slots").addEventListener("click", (e) => {
+    const mem = e.target.closest("[data-member]");
+    if (mem) { const i = Number(mem.dataset.member); if (i !== picking.mi) setMember(i); return; }
     const pick = e.target.closest("[data-pick]"), inc = e.target.closest("[data-inc]"), dec = e.target.closest("[data-dec]");
     const el = pick || inc || dec; if (!el) return;
     const [sid, pid, q] = (el.dataset.pick || el.dataset.inc || el.dataset.dec).split("|");
@@ -375,11 +413,10 @@
     if (a) { const p = byId()[a.dataset.add]; if (p) addSingle(p, a.dataset.pre === "1"); return; }
     const b = e.target.closest("[data-bump]");
     if (b) { bump(b.dataset.bump, Number(b.dataset.d)); return; }
-    const s = e.target.closest("[data-set]");
+    const s = e.target.closest("[data-setprice]");
     if (s) {
-      const set = shop.bundles.find((x) => x.id === s.dataset.set);
-      const tier = set && tiersOf(set).find((t) => t.price.toFixed(2) === s.dataset.tier);
-      if (tier) openSet(set, tier);
+      const g = priceGroups().find((x) => x.price.toFixed(2) === s.dataset.setprice);
+      if (g) openSet(g);
     }
   });
 

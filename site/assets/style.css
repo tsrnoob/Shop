@@ -255,3 +255,9 @@ button.opt { cursor: pointer; }
 .set .slots .choices { font-family: var(--f-cn); }
 .price-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .save { font-size: .78rem; font-weight: 700; color: var(--ok); }
+
+/* several menus stacked on one price card */
+.set .member .sn { font-family: var(--f-cn); font-weight: 600; font-size: .92rem; line-height: 1.35; }
+.set .member.out { opacity: .55; }
+.set .or { font-size: .72rem; font-weight: 700; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.set .or::before, .set .or::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
