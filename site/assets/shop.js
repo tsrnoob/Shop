@@ -613,10 +613,12 @@
     const client = String(s.ad_client || "").trim(), slot = String(s.ad_slot || "").trim();
     if (adCfg || !/^ca-pub-\d{10,20}$/.test(client) || !/^\d{6,20}$/.test(slot)) return;
     adCfg = { client, slot };
-    const sc = document.createElement("script");
-    sc.async = true; sc.crossOrigin = "anonymous";
-    sc.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(client);
-    document.head.appendChild(sc);
+    if (!document.querySelector('script[src*="pagead2.googlesyndication.com"]')) {
+      const sc = document.createElement("script");
+      sc.async = true; sc.crossOrigin = "anonymous";
+      sc.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(client);
+      document.head.appendChild(sc);
+    }
     fillAds();
   }
   function fillAds() {

@@ -442,7 +442,7 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
       ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." :
       adClient && !/^ca-pub-\d{10,20}$/.test(adClient) ? "AdSense publisher ID looks like ca-pub-1234567890123456." :
       adSlot && !/^\d{6,20}$/.test(adSlot) ? "Ad unit ID is a number, e.g. 1234567890." :
-      !!adClient !== !!adSlot ? "Fill in both ad fields, or leave both empty." :
+      adSlot && !adClient ? "Fill in the AdSense publisher ID too." :
       !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Menu discount must be a number, e.g. 1.00" :
       !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu target profit must be a number, e.g. 1.50" : "";
     if (bad) { err.textContent = bad; err.hidden = false; return; }

@@ -130,9 +130,9 @@ supabase/
 The site has three small, labelled ad spots: under the login box, under the product list, and (only on very wide screens) one in each side margin. Never inside the cart or the meal-set picker. They stay invisible until you fill in both IDs.
 
 1. Sign up at **adsense.google.com** with your Google account and add `tsrnoob.com` as a site.
-2. AdSense gives you a line for **ads.txt** (`google.com, pub-…, DIRECT, f08c47fec0942fa0`). Send it to me (or put it in `site/ads.txt`) so it's served at `tsrnoob.com/ads.txt`.
+2. Done: the AdSense code is in the shop page and `tsrnoob.com/ads.txt` is live (publisher `ca-pub-5739473064236378`).
 3. In AdSense → **Privacy & messaging**, turn on the **European regulations (GDPR)** consent message. Google requires a consent message for visitors in the EU.
 4. Wait for AdSense to approve the site. This can take days to weeks.
 5. In AdSense → **Ads → By ad unit → Display ads**, create one unit (any name) and copy its number (`data-ad-slot`).
-6. Owner page → **Settings** → fill **AdSense publisher ID** (`ca-pub-…`) and **display ad unit ID** → Save. The ads appear on the next page load. Empty both fields to turn ads off again.
+6. Owner page → **Settings** → the publisher ID is already filled in; add the **display ad unit ID** → Save. Leave **Auto ads** off in AdSense, or Google places ads anywhere on the page by itself. The ads appear on the next page load. Empty both fields to turn ads off again.
 
