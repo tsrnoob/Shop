@@ -115,6 +115,7 @@
     for (const [k, l] of Object.entries(cart)) {
       if (k === exceptKey) continue;
       if (l.bundle) {
+        if (l.preorder) continue;
         for (const picks of paidPicksOf(l)) for (const [pid, c] of Object.entries(picks)) n[pid] = (n[pid] || 0) + c * l.qty;
       } else if (!l.preorder) n[l.id] = (n[l.id] || 0) + l.qty;
     }
@@ -125,10 +126,14 @@
   // Can this price group be filled right now? Only the paid items' stock counts.
   const comboInStock = (b, c) => paidSlots(b).every((s, i) => freeStock(c.p[i]) >= s.qty);
   const tierAvailable = (b, tier) => tier.combos.some((c) => comboInStock(b, c));
+  // a combination can be preordered when all its paid items allow preorders
+  const comboPre = (b, c) => { const P = byId(); return paidSlots(b).every((s, i) => P[c.p[i]]?.preorder_ok); };
+  const comboAvail = (b, c) => comboInStock(b, c) || comboPre(b, c);
+  const setAny = (b) => (b.combos || []).some((c) => comboAvail(b, c));
 
   // ---------- cart ----------
   const singleKey = (id, pre) => "p:" + id + (pre ? ":pre" : "");
-  const setKey = (bid, picks) => "b:" + bid + ":" + JSON.stringify(Object.keys(picks).sort().map((s) => [s, Object.entries(picks[s]).filter(([, c]) => c > 0).sort()]));
+  const setKey = (bid, picks, pre) => "b:" + bid + (pre ? ":pre" : "") + ":" + JSON.stringify(Object.keys(picks).sort().map((s) => [s, Object.entries(picks[s]).filter(([, c]) => c > 0).sort()]));
   function saveCart() { store.set("shop.cart2", cart); renderCartBar(); }
 
   function reconcileCart(quiet) {
@@ -158,9 +163,17 @@
     }
     // meal sets drawing on the same stock: trim the last ones that no longer fit
     for (const [k, l] of Object.entries(cart)) {
-      if (!l.bundle) continue;
+      if (!l.bundle || l.preorder) continue;
+      const orig = l.qty;
       while (l.qty > 0 && paidPicksOf(l).some((picks) => Object.keys(picks).some((pid) => freeStock(pid, k) < picks[pid] * l.qty))) l.qty--;
-      if (l.qty === 0) { delete cart[k]; notes.push("a meal set sold out"); }
+      if (l.qty === orig) continue;
+      const b = B[l.bundle], c = b && comboFor(b, l.picks);
+      if (c && comboPre(b, c)) {
+        const pk = setKey(l.bundle, l.picks, true);
+        cart[pk] = { bundle: l.bundle, picks: l.picks, preorder: true, qty: Math.min(max, (cart[pk]?.qty || 0) + orig - l.qty) };
+        notes.push(`${name(b)} sold out, moved to preorder`);
+      } else notes.push("a meal set sold out");
+      if (l.qty === 0) delete cart[k];
     }
     saveCart();
     if (notes.length && !quiet) toast("购物车已更新 Cart updated: " + notes.join(", "));
@@ -169,6 +182,7 @@
   function lineMaxSingle(p, pre, key) { const m = shop.settings.max_qty || 10; return pre ? m : Math.min(m, freeStock(p.id, key)); }
   function lineMaxSet(l, key) {
     let m = shop.settings.max_qty || 10;
+    if (l.preorder) return m;
     for (const picks of paidPicksOf(l)) for (const [pid, c] of Object.entries(picks)) if (c > 0) m = Math.min(m, Math.floor(freeStock(pid, key) / c));
     return m;
   }
@@ -216,20 +230,21 @@
     const bs = shop.bundles.filter((b) => (b.combos || []).length);
     $("#sets-section").hidden = !bs.length;
     if (!bs.length) { $("#sets").innerHTML = ""; return; }
-    const ok = bs.some(setOk);
-    const live = bs.filter(setOk), pool = live.length ? live : bs;
-    const all = pool.flatMap((b) => b.combos.filter((c) => !live.length || comboInStock(b, c)));
+    const ok = bs.some(setOk), pre = !ok && bs.some(setAny);
+    const live = bs.filter(setOk), pool = live.length ? live : bs.filter(setAny).length ? bs.filter(setAny) : bs;
+    const all = pool.flatMap((b) => b.combos.filter((c) => (live.length ? comboInStock(b, c) : comboAvail(b, c))));
     const from = Math.min(...all.map((c) => Number(c.price))), best = Math.max(...all.map(saving));
     // pictures: one from each set in turn, no repeats, at most 3
     const lists = pool.map(memberImgs), imgs = [];
     for (let k = 0; imgs.length < 3 && lists.some((l) => l[k]); k++) for (const l of lists) if (l[k] && !imgs.includes(l[k]) && imgs.length < 3) imgs.push(l[k]);
-    $("#sets").innerHTML = `<article class="set setall ${ok ? "" : "soldout"}">
+    $("#sets").innerHTML = `<article class="set setall ${ok ? "" : pre ? "pre" : "soldout"}">
         <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
         <div class="info">
           <div class="n-cn">套餐 <span class="n-en">Meal sets</span></div>
-          <ul class="slots">${bs.map((b) => `<li class="${setOk(b) ? "" : "muted"}">${esc(b.name_cn)}${setOk(b) ? "" : " · 售罄 sold out"}</li>`).join("")}</ul>
+          <ul class="slots">${bs.map((b) => `<li class="${setOk(b) ? "" : setAny(b) ? "" : "muted"}">${esc(b.name_cn)}${setOk(b) ? "" : setAny(b) ? ' <span class="pre-chip">· 可预订 preorder</span>' : " · 售罄 sold out"}</li>`).join("")}</ul>
+          ${pre ? `<div class="prenote"><span>今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in</span></div>` : ""}
           <div class="row"><span class="price-wrap"><span class="tag">${money(from)} 起</span>${best > 0.005 ? `<span class="save">最多省 ${money(best)} · save up to ${money(best)}</span>` : ""}</span>
-            ${ok ? `<button class="btn primary" type="button" data-setall>选择套餐 Choose</button>` : `<button class="btn" disabled>售罄 Sold out</button>`}</div>
+            ${ok ? `<button class="btn primary" type="button" data-setall>选择套餐 Choose</button>` : pre ? `<button class="btn prebtn" type="button" data-setall>预订套餐 Preorder</button>` : `<button class="btn" disabled>售罄 Sold out</button>`}</div>
         </div>
       </article>`;
   }
@@ -258,10 +273,10 @@
     const { members } = picking;
     $("#set-title").textContent = "选择套餐 · Choose a meal set";
     $("#set-slots").innerHTML = `<div class="setpick-list">${members.map((m, i) => {
-      const ok = setOk(m);
-      const cs = m.combos.filter((c) => comboInStock(m, c));
+      const ok = setOk(m), pre = !ok && setAny(m), can = ok || pre;
+      const cs = m.combos.filter((c) => (ok ? comboInStock(m, c) : comboAvail(m, c)));
       const imgs = memberImgs(m).slice(0, 3);
-      const sv = ok ? fmtSave(saveRange(cs)) : "";
+      const sv = can ? fmtSave(saveRange(cs)) : "";
       const lines = m.slots.map((s) => {
         if (s.is_gift) {
           const o = optsOf(s);
@@ -271,13 +286,14 @@
         const n = new Set(m.combos.map((c) => c.p[paidSlots(m).indexOf(s)])).size;
         return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> · ${n} 种 choice${n === 1 ? "" : "s"}</li>`;
       }).join("");
-      return `<button type="button" class="setpick ${ok ? "" : "out"}" ${ok ? `data-member="${i}"` : "disabled"}>
+      return `<button type="button" class="setpick ${ok ? "" : pre ? "pre" : "out"}" ${can ? `data-member="${i}"` : "disabled"}>
         <span class="setpick-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="">`).join("")}</span>
         <span class="setpick-body">
           <span class="n-cn">${esc(m.name_cn)}</span>
           <span class="n-en">${esc(m.name_en)}</span>
           <ul class="slots">${lines}</ul>
-          <span class="setpick-foot">${ok ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}<span class="go">选这个 Choose →</span>` : `<span class="muted">售罄 Sold out</span>`}</span>
+          ${pre ? `<span class="prenote"><span>今天没货，可以预订 · Out right now, preorder it</span></span>` : ""}
+          <span class="setpick-foot">${can ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}<span class="go">${ok ? "选这个 Choose →" : "预订 Preorder →"}</span>` : `<span class="muted">售罄 Sold out</span>`}</span>
         </span>
       </button>`;
     }).join("")}</div>`;
@@ -289,7 +305,7 @@
     const { b, tier, picks } = picking;
     const ps = paidSlots(b);
     const chosen = ps.map((s) => Object.keys(picks[s.id]).find((x) => picks[s.id][x] > 0));
-    return tier.combos.filter((c) => c.p[i] === pid && comboInStock(b, c) && ps.every((_, j) => j === i || !chosen[j] || chosen[j] === c.p[j]));
+    return tier.combos.filter((c) => c.p[i] === pid && comboAvail(b, c) && ps.every((_, j) => j === i || !chosen[j] || chosen[j] === c.p[j]));
   }
   // paid options still possible in this price group, given what's already picked in the other paid choices
   function paidOptions(i) {
@@ -298,7 +314,7 @@
     const chosen = ps.map((s) => Object.keys(picks[s.id]).find((pid) => picks[s.id][pid] > 0));
     const ok = new Set();
     for (const c of tier.combos) {
-      if (!comboInStock(b, c)) continue;
+      if (!comboAvail(b, c)) continue;
       if (ps.every((_, j) => j === i || !chosen[j] || chosen[j] === c.p[j])) ok.add(c.p[i]);
     }
     return ok;
@@ -350,6 +366,7 @@
         const free = isPaid ? freeStock(p.id) - otherSlotUse(s.id, p.id) : Infinity; // gifts are never sold out
         const out = !n && isPaid && !possible.has(p.id);
         const why = !out ? esc(p.meta || p.name_en) : (free <= 0 ? "售罄 sold out" : "不能和已选的搭配 · not with your other pick");
+        const preOpt = isPaid && !out && free <= 0; // not in stock, but can be preordered
         // what taking this option saves (exact once the other choices are made, otherwise a range)
         let sv = "";
         if (isPaid && !out) {
@@ -364,15 +381,19 @@
           : `<span class="stepper"><button type="button" data-dec="${s.id}|${esc(p.id)}" ${n ? "" : "disabled"} aria-label="One less">−</button><span>${n}</span><button type="button" data-inc="${s.id}|${esc(p.id)}" ${have >= s.qty || free <= 0 ? "disabled" : ""} aria-label="One more">+</button></span>`;
         return `<${single ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${single && !out ? `data-pick="${s.id}|${esc(p.id)}|${s.qty}"` : ""} ${single && out ? "disabled" : ""}>
           <img src="${esc(p.image_url)}" alt="">
-          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${sv ? `<span class="save">${sv}</span>` : ""}</span>
+          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${preOpt ? `<span class="pre-chip">今天没货 · 可预订 preorder</span>` : ""}${sv ? `<span class="save">${sv}</span>` : ""}</span>
           ${ctrl}
         </${single ? "button" : "div"}>`;
       }).join("")}</div></div>`;
     }).join("");
     const combo = b.slots.every((s) => slotCount(s.id) === need(s)) && comboFor(b, picking.picks);
     const btn = $("#set-add");
+    const pre = !!combo && !comboInStock(b, combo);
+    picking.pre = pre;
     btn.disabled = !combo;
-    btn.textContent = combo ? `加入购物车 Add to cart · ${money(combo.price)}${saving(combo) > 0.005 ? ` (省 ${money(saving(combo))})` : ""}` : "请选择 Choose everything above";
+    btn.classList.toggle("primary", !pre); btn.classList.toggle("prebtn", pre);
+    btn.textContent = !combo ? "请选择 Choose everything above"
+      : `${pre ? "预订 Preorder" : "加入购物车 Add to cart"} · ${money(combo.price)}${saving(combo) > 0.005 ? ` (省 ${money(saving(combo))})` : ""}`;
     $("#set-err").hidden = true;
   }
   // same product picked in another choice of this set
@@ -397,12 +418,13 @@
     const { b, picks } = picking;
     const clean = {};
     for (const s of b.slots) clean[s.id] = Object.fromEntries(Object.entries(picks[s.id]).filter(([, c]) => c > 0));
-    const k = setKey(b.id, clean);
-    const line = cart[k] || { bundle: b.id, qty: 0, picks: clean };
-    if (lineMaxSet(line, k) < line.qty + 1) { const err = $("#set-err"); err.textContent = "库存不够 · Not enough stock for this combination."; err.hidden = false; return; }
+    const pre = !!picking.pre;
+    const k = setKey(b.id, clean, pre);
+    const line = cart[k] || { bundle: b.id, qty: 0, picks: clean, preorder: pre };
+    if (lineMaxSet(line, k) < line.qty + 1) { const err = $("#set-err"); err.textContent = pre ? `每样最多 ${shop.settings.max_qty} · Max ${shop.settings.max_qty} of each.` : "库存不够 · Not enough stock for this combination."; err.hidden = false; return; }
     line.qty += 1; cart[k] = line;
     saveCart(); closeSheets(); renderAll();
-    toast("已加入 Added to cart");
+    toast(pre ? "已加入预订 Added as preorder" : "已加入 Added to cart");
   };
 
   // ---------- single items ----------
@@ -474,7 +496,7 @@
         const firstImg = P[Object.keys(l.picks[b.slots[0].id] || {})[0]];
         return `<div class="line">
           <img src="${esc(firstImg?.image_url || "")}" alt="">
-          <div class="t"><div class="n-cn">${esc(name(b))}</div><ul class="sub parts">${parts.join("")}</ul></div>
+          <div class="t"><div class="n-cn">${esc(name(b))}</div>${l.preorder ? '<div class="sub"><span class="pre-chip">预订 Preorder</span></div>' : ""}<ul class="sub parts">${parts.join("")}</ul></div>
           <div class="r"><b class="num">${money(lineTotal(l))}</b>${stepper(k, l.qty, lineMaxSet(l, k))}</div>
         </div>`;
       }
@@ -531,7 +553,7 @@
     try {
       const res = await API.placeOrder({
         session: session.token, location, note: $("#co-note").value.trim(), wanted_date: null,
-        items: lines.map((l) => l.bundle ? { bundle: l.bundle, qty: l.qty, picks: l.picks } : { id: l.id, qty: l.qty, preorder: !!l.preorder })
+        items: lines.map((l) => l.bundle ? { bundle: l.bundle, qty: l.qty, picks: l.picks, preorder: !!l.preorder } : { id: l.id, qty: l.qty, preorder: !!l.preorder })
       });
       if (locs.length > 1) store.set("shop.location", location);
       cart = {}; saveCart(); $("#co-note").value = "";
@@ -583,7 +605,7 @@
     if (!list.length) { body.innerHTML = `<div class="empty">还没有订单 · No orders yet.</div>`; return; }
     body.innerHTML = list.map((o) => {
       const items = o.items || [];
-      const sets = (o.bundles || []).map((b) => `<li><b>${b.qty > 1 ? b.qty + " × " : ""}${esc(b.name_cn || b.name_en)}</b><ul>${items.filter((i) => i.order_bundle_id === b.id)
+      const sets = (o.bundles || []).map((b) => `<li><b>${b.qty > 1 ? b.qty + " × " : ""}${esc(b.name_cn || b.name_en)}</b>${items.some((i) => i.order_bundle_id === b.id && i.preorder) ? ' <span class="pre-chip">预订</span>' : ""}<ul>${items.filter((i) => i.order_bundle_id === b.id)
         .map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)}${i.is_gift ? ' <span class="gift">送</span>' : ""}</li>`).join("")}</ul></li>`).join("");
       const singles = items.filter((i) => !i.order_bundle_id).map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)}${i.preorder ? ' <span class="pre-chip">预订</span>' : ""}</li>`).join("");
       return `<div class="ord">

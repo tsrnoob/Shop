@@ -65,8 +65,8 @@
           const picks = l.picks[s.id] || {}; const sum = Object.values(picks).reduce((a, n) => a + n, 0);
           const fixed = s.is_gift && !s.options.some((id) => prod(id)?.active);
           if (sum !== (fixed ? 0 : s.qty)) err("bad_picks:" + b.id);
-          for (const [pid, n] of Object.entries(picks)) { const p = prod(pid); if (!s.is_gift && p.stock < n * l.qty) err("out_of_stock:" + pid);
-            const taken = s.is_gift ? Math.min(Math.max(p.stock, 0), n * l.qty) : n * l.qty; p.stock -= taken; items.push({ id: ibid++, product_id: pid, name_cn: p.name_cn, name_en: p.name_en, qty: n * l.qty, preorder: false, unit_price: 0, unit_cost: p.cost, order_bundle_id: obid, is_gift: s.is_gift }); }
+          for (const [pid, n] of Object.entries(picks)) { const p = prod(pid); if (!l.preorder && !s.is_gift && p.stock < n * l.qty) err("out_of_stock:" + pid);
+            const taken = l.preorder ? 0 : s.is_gift ? Math.min(Math.max(p.stock, 0), n * l.qty) : n * l.qty; p.stock -= taken; items.push({ id: ibid++, product_id: pid, name_cn: p.name_cn, name_en: p.name_en, qty: n * l.qty, preorder: !!l.preorder, unit_price: 0, unit_cost: p.cost, order_bundle_id: obid, is_gift: s.is_gift }); }
         }
       } else {
         const p = prod(l.id); if (!l.preorder) { if (p.stock < l.qty) err("out_of_stock:" + l.id); p.stock -= l.qty; }
@@ -93,7 +93,7 @@
       const t = crypto.randomUUID(); sessions[t] = c.id; saveSess(); c.last_login_at = new Date().toISOString(); return { token: t, username: c.username, wechat_id: c.wechat_id }; },
     me: async (t) => { await wait(); const c = sessCust(t); return { username: c.username, wechat_id: c.wechat_id }; },
     logout: async (t) => { delete sessions[t]; saveSess(); },
-    placeOrder: async (o) => { await wait(); const c = sessCust(o.session); if (!S.shop_open && o.items.some((l) => l.bundle || !l.preorder)) err("shop_closed"); const r = place(c, o); return { code: r.code, total: r.total, wanted_date: r.wanted_date, location: r.location }; },
+    placeOrder: async (o) => { await wait(); const c = sessCust(o.session); if (!S.shop_open && o.items.some((l) => !l.preorder)) err("shop_closed"); const r = place(c, o); return { code: r.code, total: r.total, wanted_date: r.wanted_date, location: r.location }; },
     myOrders: async (t) => { const c = sessCust(t); return wait(O.filter((o) => o.customer_id === c.id).map((o) => ({ ...o, items: o.order_items, bundles: o.order_bundles }))); },
     cancelOrder: async (t, code) => { const c = sessCust(t); const o = O.find((x) => x.code === code && x.customer_id === c.id); if (o.status !== "new") err("cannot_cancel"); cancel(o); return wait({ status: "cancelled" }); },
 

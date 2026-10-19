@@ -318,3 +318,11 @@ button.opt { cursor: pointer; }
   .adrail.left { left: calc(50% - 540px - 190px); }
   .adrail.right { right: calc(50% - 540px - 190px); }
 }
+
+/* meal sets that can only be preordered */
+.set.setall.pre { border-color: var(--pre); }
+.setpick.pre { border-color: var(--pre); }
+.setpick.pre .go { color: var(--pre); }
+.setall .prenote, .setpick .prenote { margin-top: 6px; }
+.opt .t .pre-chip { display: block; margin-top: 2px; text-transform: none; letter-spacing: 0; font-size: .74rem; }
+#set-add.prebtn { background: var(--pre); border-color: var(--pre); color: var(--pre-fg); }

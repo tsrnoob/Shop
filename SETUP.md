@@ -97,7 +97,7 @@ Then send the link to people after they add you on WeChat.
 ## How the rules work
 
 - **Stock** is reserved the moment someone orders. Two people can't buy the last item at the same time (tested with 8 simultaneous orders for 1 item: exactly 1 went through).
-- **Preorders** are only offered when an item is sold out. There's no date or minimum number of days: you tell the customer on WeChat when it's in. They don't touch stock.
+- **Preorders** are only offered when an item is sold out, for single items and for meal sets (a set whose chosen items aren't in stock becomes a preorder). There's no date or minimum number of days: you tell the customer on WeChat when it's in. They don't touch stock, and they still work while the shop is closed.
 - **Limits**: max 10 of each product per order, and max 5 open orders per WeChat ID (both changeable in Settings). This stops one person from reserving the whole shelf.
 - **Customers can cancel** their own order until you press Confirm.
 - **Accounts**: only people you create on the Customers tab can log in, with just their username (no password). Anyone who knows a username can order as that person, so pick usernames that aren't easy to guess (e.g. `mei-4821`, not `mei`), and you still confirm each order on WeChat. If an account is misused, **Switch off** logs it out everywhere.

@@ -100,7 +100,7 @@
     $("#orders").innerHTML = list.map((o) => {
       const items = [...(o.order_items || [])].sort((a, b) => a.id - b.id);
       const cust = customers.find((c) => c.id === o.customer_id);
-      const sets = (o.order_bundles || []).map((b) => `<li><b>${b.qty > 1 ? b.qty + " × " : ""}${esc(b.name_cn || b.name_en)}</b> <span class="muted">@ ${money(b.unit_price)}</span><ul>${items.filter((i) => i.order_bundle_id === b.id)
+      const sets = (o.order_bundles || []).map((b) => `<li><b>${b.qty > 1 ? b.qty + " × " : ""}${esc(b.name_cn || b.name_en)}</b> <span class="muted">@ ${money(b.unit_price)}</span>${items.some((i) => i.order_bundle_id === b.id && i.preorder) ? ' <span class="pre-chip">preorder</span>' : ""}<ul>${items.filter((i) => i.order_bundle_id === b.id)
         .map((i) => `<li>${i.qty} × ${esc(i.name_cn || i.name_en)}${i.is_gift ? ' <span class="gift">gift</span>' : ""}</li>`).join("")}</ul></li>`).join("");
       let due = "";
       if (o.wanted_date) {
