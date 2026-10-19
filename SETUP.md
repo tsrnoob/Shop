@@ -87,8 +87,10 @@ Then send the link to people after they add you on WeChat.
 | Change the menu discount / target profit | Settings → **Menu discount target** (default €1.00) and **Menu target profit** (default €1.50) |
 | New drink or water for the menus | Products → **+ Add product** (category **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
 | Track 魔芋爽 single packs (optional) | Products: add packs to **卫龙 魔芋爽 … (单包)** via **Restock**. Not needed for menus to sell: gifts never make a menu sold out |
-| Leaving campus for the day | Top of the owner page → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed", only preorders can be placed. Open orders stay as they are |
-| Starting a new day | Set today's stock on **Products** (customers still see closed meanwhile), then **Open shop** at the top |
+| In a lecture / busy for a while | Top of the owner page → type a message (e.g. "上课中，14:00 回来 · In a lecture until 14:00") → **Pause selling**. Stock is kept; customers get a pop-up and a pinned banner with your message and can only preorder. **Resume selling** when you're back |
+| Leaving campus for the day | Type a message (optional) → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed" with your message, only preorders can be placed. Open orders stay as they are |
+| Change the message while paused/closed | Edit the text in the bar → **Update message** |
+| Starting a new day | Set today's stock on **Products** (customers still see closed meanwhile), then **Open shop** at the top. The message disappears |
 | Bought more stock | Products → **Restock** → number → **Add** |
 | Change a price | Products → type the new **Price** and press Enter (or just tap elsewhere). It saves by itself, so you can go down the list one after another |
 | Sold something in person | Inventory → **Record a sale made outside the site** |

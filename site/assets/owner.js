@@ -376,38 +376,55 @@
     catch (ex) { err.textContent = "Couldn't record: " + ex.message; err.hidden = false; }
   });
 
-  // ---------- open / closed ----------
-  // Closing sets every product's stock to 0; customers then see the shop as closed (preorders still work).
+  // ---------- open / paused / closed ----------
+  // Pause: nobody can order what's in stock, stock is kept (lectures). Close: every stock goes to 0 (end of day).
+  // Either way customers see a big banner and a pop-up with the optional message; preorders still work.
+  const shopMode = () => (settings?.shop_open !== false ? "open" : settings?.shop_paused ? "paused" : "closed");
   function renderShopState() {
-    const box = $("#shopstate"), btn = $("#shopstate-btn");
     if (!settings) return;
-    const open = settings.shop_open !== false;
-    box.hidden = false; box.classList.toggle("closed", !open);
-    $("#shopstate-txt").innerHTML = open ? "<b>Shop is open</b> · customers can order what's in stock" : "<b>Shop is closed</b> · customers see it closed (preorders still work)";
-    btn.textContent = open ? "Close for today" : "Open shop";
-    btn.className = "btn small " + (open ? "" : "primary");
-    delete btn.dataset.confirm;
+    const mode = shopMode(), box = $("#shopstate");
+    box.hidden = false;
+    box.classList.toggle("closed", mode === "closed"); box.classList.toggle("paused", mode === "paused");
+    $("#shopstate-txt").innerHTML = {
+      open: "<b>Shop is open</b> · customers can order what's in stock",
+      paused: "<b>Selling paused</b> · stock is kept, customers can only preorder",
+      closed: "<b>Shop is closed</b> · stock cleared, customers can only preorder"
+    }[mode];
+    $("#shopstate-btns").innerHTML = {
+      open: `<button class="btn small" type="button" data-mode="paused">Pause selling</button><button class="btn small" type="button" data-mode="closed">Close for today</button>`,
+      paused: `<button class="btn small primary" type="button" data-mode="open">Resume selling</button><button class="btn small" type="button" data-mode="closed">Close for today</button>`,
+      closed: `<button class="btn small primary" type="button" data-mode="open">Open shop</button>`
+    }[mode];
+    const msg = $("#ss-msg");
+    if (document.activeElement !== msg) msg.value = mode === "open" ? (msg.dataset.draft || "") : (settings.status_message || "");
+    msg.placeholder = mode === "open" ? "Message for customers when you pause or close (optional), e.g. 上课中，14:00 回来 · In a lecture until 14:00" : "Message for customers (optional)";
+    $("#ss-msg-save").hidden = mode === "open";
   }
-  $("#shopstate-btn").addEventListener("click", async () => {
-    const btn = $("#shopstate-btn"), open = settings.shop_open !== false;
-    if (open && btn.dataset.confirm !== "1") {
+  $("#ss-msg").addEventListener("input", (e) => { if (shopMode() === "open") e.target.dataset.draft = e.target.value; });
+  $("#shopstate-btns").addEventListener("click", async (e) => {
+    const btn = e.target.closest("[data-mode]"); if (!btn) return;
+    const to = btn.dataset.mode;
+    if (to === "closed" && btn.dataset.confirm !== "1") {
       btn.dataset.confirm = "1"; btn.textContent = "Tap again: set ALL stock to 0";
-      setTimeout(() => { if (btn.dataset.confirm === "1") renderShopState(); }, 5000);
+      setTimeout(() => { if (btn.isConnected && btn.dataset.confirm === "1") renderShopState(); }, 5000);
       return;
     }
-    btn.disabled = true;
+    const msg = $("#ss-msg").value.trim();
+    $$("#shopstate-btns button").forEach((b) => (b.disabled = true));
     try {
-      if (open) {
-        const r = await API.closeShop();
-        toast(`Shop closed. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`);
-      } else {
-        await API.openShop();
-        const any = products.some((p) => p.stock > 0);
-        toast(any ? "Shop is open" : "Shop is open, but every stock is 0. Add today's stock on Products.");
-      }
+      const r = await API.setShopState(to, to === "open" ? null : msg);
+      if (to !== "open") $("#ss-msg").dataset.draft = "";
+      toast(to === "closed" ? `Shop closed. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`
+        : to === "paused" ? "Selling paused. Stock is kept; tap Resume when you're back."
+        : products.some((p) => p.stock > 0) ? "Open again" : "Open, but every stock is 0. Add today's stock on Products.");
       await Promise.all([loadSettings(), loadProducts()]);
     } catch (ex) { toast("Couldn't change it: " + ex.message); renderShopState(); }
-    finally { btn.disabled = false; }
+  });
+  $("#ss-msg-save").addEventListener("click", async () => {
+    const b = $("#ss-msg-save"); b.disabled = true;
+    try { await API.setStatusMessage($("#ss-msg").value.trim()); toast("Message updated"); await loadSettings(); }
+    catch (ex) { toast("Couldn't save: " + ex.message); }
+    finally { b.disabled = false; }
   });
 
   // ---------- settings ----------

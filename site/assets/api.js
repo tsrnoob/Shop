@@ -63,8 +63,8 @@
     async signIn(email, password) { if (!sb) fail({ message: "not_configured" }); const { error } = await sb.auth.signInWithPassword({ email, password }); if (error) fail(error); },
     async signOut() { if (sb) await sb.auth.signOut(); },
     isOwner: () => rpc("is_owner"),
-    closeShop: () => rpc("owner_close_shop"),
-    openShop: () => rpc("owner_open_shop"),
+    setShopState: (state, message) => rpc("owner_set_shop_state", { p_state: state, p_message: message || null }),
+    setStatusMessage: (message) => rpc("owner_set_status_message", { p_message: message || null }),
 
     listOrders: () => q(sb.from("orders")
       .select("*, order_items!order_items_order_id_fkey(*), order_bundles!order_bundles_order_id_fkey(*)")

@@ -293,8 +293,6 @@ button.opt { cursor: pointer; }
 .opt.fixed { cursor: default; }
 .opt .tickmark { font-weight: 800; color: var(--ok); font-size: 1.2rem; padding: 0 6px; }
 
-.closedbar { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); }
-.closedbar span { font-size: .88rem; opacity: .92; }
 
 /* ---------- preorder look: available to order ahead, not dead ---------- */
 .prod.pre { border-color: var(--pre); box-shadow: inset 0 0 0 1px var(--pre); }
@@ -326,3 +324,24 @@ button.opt { cursor: pointer; }
 .setall .prenote, .setpick .prenote { margin-top: 6px; }
 .opt .t .pre-chip { display: block; margin-top: 2px; text-transform: none; letter-spacing: 0; font-size: .74rem; }
 #set-add.prebtn { background: var(--pre); border-color: var(--pre); color: var(--pre-fg); }
+
+/* ---------- paused / closed: hard-to-miss bar + pop-up ---------- */
+.statusbar { color: #fff; position: sticky; top: var(--hdr, 0px); z-index: 19; box-shadow: 0 4px 14px rgba(0,0,0,.2); }
+.statusbar .wrap { flex-wrap: nowrap; }
+.sb-body { flex: 1; }
+@media (max-width: 560px) { .sb-sub { display: none; } .sb-msg { font-size: 1.05rem; } }
+.statusbar.closed { background: #2b2140; }
+.statusbar.paused { background: #b86e00; }
+.statusbar .wrap { display: flex; gap: 12px; align-items: flex-start; padding-block: 10px; }
+.sb-ico { font-size: 1.6rem; line-height: 1; }
+.sb-body { display: flex; flex-direction: column; gap: 3px; min-width: 0; }
+.sb-body b { font-size: 1.05rem; font-family: var(--f-cn); }
+.sb-msg { font-size: 1.15rem; font-weight: 700; line-height: 1.35; background: rgba(255,255,255,.14); border-radius: 8px; padding: 6px 10px; margin: 2px 0; overflow-wrap: anywhere; }
+.sb-sub { font-size: .85rem; opacity: .9; }
+.overlay.popup { align-items: center; padding: 20px; }
+.popcard { background: var(--surface); color: var(--fg); width: min(400px, 100%); border-radius: 16px; padding: 24px 20px 20px; text-align: center; box-shadow: var(--shadow); display: flex; flex-direction: column; gap: 10px; }
+.popcard .pop-ico { font-size: 2.6rem; line-height: 1; }
+.popcard h2 { margin: 0; font-size: 1.25rem; font-family: var(--f-cn); }
+.popcard .pop-msg { margin: 4px 0; font-size: 1.2rem; font-weight: 700; line-height: 1.4; padding: 12px; border-radius: 10px; background: var(--sunk); overflow-wrap: anywhere; }
+.popup.paused .popcard { border-top: 6px solid #b86e00; }
+.popup.closed .popcard { border-top: 6px solid #2b2140; }

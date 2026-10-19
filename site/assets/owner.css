@@ -135,9 +135,15 @@ body.private .pv { filter: blur(7px); user-select: none; }
 .prow.saving { opacity: .75; }
 .prow .rowsave { min-height: 1.4em; }
 
-/* open / closed bar */
-.shopstate { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; margin: 14px 0 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--ok) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
+/* open / paused / closed bar */
+.shopstate { display: flex; flex-direction: column; gap: 10px; margin: 14px 0 0; padding: 10px 14px; border-radius: 10px; background: color-mix(in srgb, var(--ok) 12%, var(--surface)); border: 1px solid color-mix(in srgb, var(--ok) 40%, transparent); }
+.ss-top { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
 .shopstate .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--ok); flex: none; }
 .shopstate .txt { flex: 1; min-width: 200px; font-size: .9rem; }
+.ss-btns { display: flex; gap: 6px; flex-wrap: wrap; }
+.ss-msg { display: flex; gap: 6px; }
+.ss-msg input { flex: 1; min-width: 0; border: 1px solid var(--line); background: var(--surface); border-radius: 8px; padding: 8px 10px; font-size: 16px; }
+.shopstate.paused { background: color-mix(in srgb, #d98a00 14%, var(--surface)); border-color: color-mix(in srgb, #d98a00 45%, transparent); }
+.shopstate.paused .dot { background: #d98a00; }
 .shopstate.closed { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .shopstate.closed .dot { background: var(--accent); }

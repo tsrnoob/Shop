@@ -25,6 +25,14 @@
   </div>
 </header>
 
+<!-- paused / closed: big bar that stays at the top while scrolling, on every view -->
+<div class="statusbar" id="statusbar" hidden>
+  <div class="wrap">
+    <span class="sb-ico" id="sb-ico" aria-hidden="true"></span>
+    <div class="sb-body"><b id="sb-title"></b><div class="sb-msg" id="sb-msg" hidden></div><span class="sb-sub" id="sb-sub"></span></div>
+  </div>
+</div>
+
 <!-- ============ login ============ -->
 <main id="login-view" class="login" hidden>
   <form class="card" id="login-form" novalidate>
@@ -50,7 +58,6 @@
 <!-- ============ shop ============ -->
 <main id="shop-view" hidden>
   <div class="wrap">
-    <div class="closedbar" id="closedbar" hidden><b>已打烊 · Closed right now</b><span>今天不能直接下单，可以预订 · You can't order for today, but preorders still work.</span></div>
     <div class="notice" id="notice" hidden></div>
     <div class="strip">
       <span><b id="area-name">Garching Forschungszentrum</b> only · we agree on the exact spot on WeChat</span>
@@ -127,6 +134,17 @@
 </div>
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
+
+<!-- ============ paused / closed pop-up ============ -->
+<div class="overlay popup" id="status-pop" hidden>
+  <div class="popcard" role="alertdialog" aria-modal="true" aria-labelledby="pop-title" aria-describedby="pop-msg">
+    <div class="pop-ico" id="pop-ico" aria-hidden="true"></div>
+    <h2 id="pop-title"></h2>
+    <p class="pop-msg" id="pop-msg" hidden></p>
+    <p class="hint" id="pop-sub"></p>
+    <button class="btn primary block" type="button" data-close>知道了 · OK</button>
+  </div>
+</div>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
 <script src="assets/config.js"></script>

@@ -2,7 +2,7 @@
 (function () {
   const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
-  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob", shop_open: true,
+  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob", shop_open: true, shop_paused: false, status_message: null,
     locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 1.00, bundle_min_profit: 1.50 };
   const P = [
     ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
@@ -101,8 +101,11 @@
     signIn: async (e, p) => { if (e !== S.owner_email || p !== "test") err("Invalid login credentials"); sessionStorage.setItem("mock.owner", "1"); },
     signOut: async () => sessionStorage.removeItem("mock.owner"),
     isOwner: async () => signedIn(),
-    closeShop: async () => { let n = 0; for (const p of P) if (p.stock) { p.stock = 0; n++; } S.shop_open = false; return wait({ cleared: n }); },
-    openShop: async () => { S.shop_open = true; return wait(); },
+    setShopState: async (state, msg) => { let n = 0;
+      if (state === "closed") for (const p of P) if (p.stock) { p.stock = 0; n++; }
+      S.shop_open = state === "open"; S.shop_paused = state === "paused"; S.status_message = state === "open" ? null : (msg || null);
+      return wait({ state, cleared: n }); },
+    setStatusMessage: async (msg) => { S.status_message = msg || null; return wait(); },
     listOrders: () => wait(O),
     setStatus: async (id, st) => { const o = O.find((x) => x.id === id); if (st === "cancelled") cancel(o); else o.status = st; return wait(); },
     listProducts: () => wait([...P].sort((a, b) => a.sort - b.sort)),

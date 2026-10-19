@@ -57,6 +57,7 @@
     $("#who-id").textContent = inn ? session.username : "";
     renderCartBar();
     fillAds();
+    setHeaderOffset();
   }
   function endSession(msg) {
     session = null; store.set("shop.session", null);
@@ -103,7 +104,7 @@
     document.querySelectorAll(".wechat-contact").forEach((el) => (el.textContent = s.wechat_contact || ""));
     $("#area-name").textContent = (s.locations || [])[0] || "Garching";
     $("#notice").hidden = !s.notice; $("#notice").textContent = s.notice || "";
-    $("#closedbar").hidden = s.shop_open !== false;
+    renderStatus(s);
     setupAds(s);
     reconcileCart(true);
     renderAll();
@@ -536,7 +537,7 @@
     too_many_open_orders: () => "你还有未完成的订单 · You already have several open orders. Message me on WeChat or wait until they're delivered.",
     bad_qty: () => `每样最多 ${shop.settings.max_qty} 件 · Max ${shop.settings.max_qty} of each.`,
     empty_cart: () => "购物车是空的 · Your cart is empty.",
-    shop_closed: () => "已打烊 · The shop just closed. Only preorders can be placed right now.",
+    shop_closed: () => "现在不接单 · I'm not taking orders right now. Only preorders can be placed.",
     not_configured: () => "The shop isn't set up yet."
   };
   $("#checkout").addEventListener("input", () => ($("#co-err").hidden = true));
@@ -627,6 +628,39 @@
   });
 
   // ---------- start ----------
+  // the status bar sits right under the header when the header is pinned (wide screens), else at the very top
+  function setHeaderOffset() {
+    const h = $("header.sign");
+    document.documentElement.style.setProperty("--hdr", getComputedStyle(h).position === "sticky" ? h.offsetHeight + "px" : "0px");
+  }
+  window.addEventListener("resize", setHeaderOffset);
+
+  // ---------- paused / closed: banner + pop-up with the owner's message ----------
+  function renderStatus(s) {
+    const mode = s.shop_open !== false ? "open" : s.shop_paused ? "paused" : "closed";
+    const msg = String(s.status_message || "").trim();
+    const bar = $("#statusbar");
+    bar.hidden = mode === "open";
+    if (mode === "open") return;
+    setHeaderOffset();
+    const T = {
+      paused: { ico: "⏸", title: "暂停接单 · Paused for now", sub: "稍后恢复，可以先预订 · Back soon. You can still preorder." },
+      closed: { ico: "🌙", title: "已打烊 · Closed right now", sub: "今天不能直接下单，可以预订 · You can't order for today, but you can preorder." }
+    }[mode];
+    bar.className = "statusbar " + mode;
+    $("#sb-ico").textContent = T.ico; $("#sb-title").textContent = T.title; $("#sb-sub").textContent = T.sub;
+    $("#sb-msg").hidden = !msg; $("#sb-msg").textContent = msg;
+    // pop-up once per state + message in this browser tab
+    const key = mode + "|" + msg;
+    let seen = ""; try { seen = sessionStorage.getItem("shop.popSeen") || ""; } catch (e) {}
+    if (seen === key) return;
+    try { sessionStorage.setItem("shop.popSeen", key); } catch (e) {}
+    $("#pop-ico").textContent = T.ico; $("#pop-title").textContent = T.title; $("#pop-sub").textContent = T.sub;
+    $("#pop-msg").hidden = !msg; $("#pop-msg").textContent = msg;
+    $("#status-pop").className = "overlay popup " + mode;
+    $("#status-pop").hidden = false;
+  }
+
   // ---------- ads (Google AdSense) ----------
   // Nothing happens until a publisher ID and ad unit ID are set on the owner page (Settings).
   // Slots are only filled once they're on screen, so hidden views never request ads.
