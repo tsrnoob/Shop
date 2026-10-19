@@ -252,3 +252,6 @@ button.opt { cursor: pointer; }
 .parts { margin: 2px 0 0; padding-left: 16px; }
 .area { display: flex; flex-direction: column; gap: 2px; background: var(--surface); border: 1px solid var(--line); border-radius: 8px; padding: 10px 12px; }
 .ord ul ul { padding-left: 16px; }
+.set .slots .choices { font-family: var(--f-cn); }
+.price-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.save { font-size: .78rem; font-weight: 700; color: var(--ok); }

@@ -347,6 +347,9 @@
     $("#st-name").value = settings.shop_name; $("#st-wechat").value = settings.wechat_contact;
     $("#st-locations").value = (settings.locations || []).join("\n");
     $("#st-pre").value = settings.preorder_days; $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_orders;
+    $("#st-disc").value = Number(settings.bundle_discount ?? 1).toFixed(2); $("#st-minp").value = Number(settings.bundle_min_profit ?? 1.5).toFixed(2);
+    $("#mh-disc").textContent = money(settings.bundle_discount ?? 1); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
+    renderBundles();
     $("#st-notice").value = settings.notice || ""; $("#st-ntfy").value = settings.ntfy_topic || ""; $("#st-owner").textContent = settings.owner_email;
   }
   $("#settings-form").addEventListener("submit", async (e) => {
@@ -358,13 +361,16 @@
       shop_name: $("#st-name").value.trim() || "Garching Snack Shop",
       wechat_contact: $("#st-wechat").value.trim(),
       locations, preorder_days: parseInt($("#st-pre").value, 10), max_qty: parseInt($("#st-max").value, 10),
-      max_open_orders: parseInt($("#st-open").value, 10), notice: $("#st-notice").value.trim() || null, ntfy_topic: ntfy || null
+      max_open_orders: parseInt($("#st-open").value, 10), notice: $("#st-notice").value.trim() || null, ntfy_topic: ntfy || null,
+      bundle_discount: num($("#st-disc").value), bundle_min_profit: num($("#st-minp").value)
     };
     const bad = !locations.length ? "Add at least one meeting spot." :
       !(patch.preorder_days >= 0 && patch.preorder_days <= 60) ? "Preorder days must be 0–60." :
       !(patch.max_qty >= 1 && patch.max_qty <= 99) ? "Max per product must be 1–99." :
       !(patch.max_open_orders >= 1 && patch.max_open_orders <= 50) ? "Max open orders must be 1–50." :
-      ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." : "";
+      ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." :
+      !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Menu discount must be a number, e.g. 1.00" :
+      !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu minimum profit must be a number, e.g. 1.50" : "";
     if (bad) { err.textContent = bad; err.hidden = false; return; }
     err.hidden = true;
     try { await API.saveSettings(patch); toast("Settings saved"); loadSettings(); }
@@ -457,19 +463,66 @@
     catch (e) { $("#bundles").innerHTML = `<div class="empty">Couldn't load menus: ${esc(e.message)}</div>`; }
   }
   const removedSlots = {};
+  const cents = (x) => Math.round(Number(x) * 100);
+  // Same rule as the database: round UP to 10 cents of max(shop prices − discount, costs + minimum profit)
+  function menuPrice(retailC, costC) {
+    const disc = cents(settings?.bundle_discount ?? 1), minp = cents(settings?.bundle_min_profit ?? 1.5);
+    return Math.ceil(Math.max(retailC - disc, costC + minp) / 10) * 10;
+  }
+  // all paid combinations of a menu (slots as read from the editor), with price, saving and profit
+  function menuCombos(slots) {
+    const P = Object.fromEntries(products.map((p) => [p.id, p]));
+    const paid = slots.filter((s) => !s.is_gift), gifts = slots.filter((s) => s.is_gift);
+    let giftC = 0, giftMissing = [];
+    for (const g of gifts) {
+      const cs = g.options.map((id) => P[id]).filter((p) => p && p.active).map((p) => cents(p.cost));
+      if (!cs.length) giftMissing.push(g.label_cn || g.label_en || "gift"); else giftC += Math.max(...cs) * g.qty;
+    }
+    if (!paid.length || giftMissing.length) return { combos: [], giftMissing, noPrice: [] };
+    const noPrice = new Set();
+    let acc = [{ ids: [], r: 0, c: 0 }];
+    for (const s of paid) {
+      const opts = s.options.map((id) => P[id]).filter((p) => p && p.active);
+      opts.filter((p) => p.price == null).forEach((p) => noPrice.add(p.name_cn || p.name_en));
+      const priced = opts.filter((p) => p.price != null);
+      acc = acc.flatMap((a) => priced.map((p) => ({ ids: [...a.ids, p.id], r: a.r + cents(p.price) * s.qty, c: a.c + cents(p.cost) * s.qty })));
+    }
+    const combos = acc.map((a) => { const price = menuPrice(a.r, a.c + giftC); return { ...a, c: a.c + giftC, price, save: a.r - price, profit: price - a.c - giftC }; });
+    return { combos, giftMissing, noPrice: [...noPrice] };
+  }
+  function pricePreview(slots) {
+    const { combos, giftMissing, noPrice } = menuCombos(slots);
+    const P = Object.fromEntries(products.map((p) => [p.id, p]));
+    if (giftMissing.length) return `<div class="avail bad">Tick at least one item for: ${giftMissing.map(esc).join(", ")}. Until then this menu isn't shown.</div>`;
+    if (!combos.length) return `<div class="avail bad">No combinations yet: tick at least one item with a price in every choice.</div>`;
+    const groups = new Map();
+    for (const c of combos) { if (!groups.has(c.price)) groups.set(c.price, []); groups.get(c.price).push(c); }
+    const rows = [...groups.entries()].sort((a, b) => a[0] - b[0]).map(([price, cs]) => {
+      const saves = cs.map((c) => c.save), profits = cs.map((c) => c.profit);
+      const rng = (arr) => { const lo = Math.min(...arr), hi = Math.max(...arr); return lo === hi ? money(lo / 100) : `${money(lo / 100)}–${money(hi / 100)}`; };
+      const inStock = cs.filter((c) => c.ids.every((id) => (P[id]?.stock || 0) > 0)).length;
+      return `<tr><td class="num"><b>${money(price / 100)}</b></td><td class="num ${Math.max(...saves) <= 0 ? "muted" : ""}">${Math.max(...saves) <= 0 ? "no saving" : rng(saves)}</td><td class="num pv">${rng(profits)}</td>
+        <td>${cs.map((c) => `<span class="${c.ids.every((id) => (P[id]?.stock || 0) > 0) ? "" : "muted"}">${c.ids.map((id) => esc(P[id]?.name_cn || id)).join(" + ")}</span>`).join("<br>")}</td>
+        <td class="num">${inStock}/${cs.length}</td></tr>`;
+    }).join("");
+    return `<div class="tablewrap"><table class="inv combos"><thead><tr><th>Price</th><th>Saving</th><th>Profit</th><th>Combinations (one card in the shop per price)</th><th>In stock</th></tr></thead><tbody>${rows}</tbody></table></div>
+      ${noPrice.length ? `<div class="avail bad">Skipped because they have no price yet: ${noPrice.map(esc).join(", ")}</div>` : ""}`;
+  }
   function slotRow(s) {
-    const opts = products.filter((p) => p.active && p.category === s.category);
-    const inStock = opts.filter((p) => p.stock > 0);
-    const units = inStock.reduce((a, p) => a + p.stock, 0);
-    const bad = units < (s.qty || 1);
+    const opts = new Set(s.options || []);
+    const cat = s.category || "main";
+    const list = products.filter((p) => p.active && (p.category === cat || opts.has(p.id)));
     return `<div class="slotrow" data-sid="${s.id || ""}">
       <label class="mini"><span>Label (中文)</span><input data-s="label_cn" value="${esc(s.label_cn)}" maxlength="40"></label>
       <label class="mini"><span>Label (English)</span><input data-s="label_en" value="${esc(s.label_en)}" maxlength="60"></label>
-      <label class="mini"><span>Choose from</span><select data-s="category">${catOptions(s.category)}</select></label>
-      <label class="mini"><span>How many</span><input data-s="qty" type="number" min="1" max="20" value="${s.qty || 1}" inputmode="numeric"></label>
+      <label class="mini"><span>Show products from</span><select data-s="category">${catOptions(cat)}</select></label>
+      <label class="mini"><span>How many</span><input data-s="qty" type="number" min="1" max="20" value="${s.is_gift ? (s.qty || 1) : 1}" inputmode="numeric" ${s.is_gift ? "" : "disabled title=\"Paid choices are always one item\""}></label>
       <label class="check"><input type="checkbox" data-s="is_gift" ${s.is_gift ? "checked" : ""}> Free gift</label>
       <button class="btn small ghost" type="button" data-sremove>Remove</button>
-      <div class="avail ${bad ? "bad" : ""}">${opts.length ? `${inStock.length} of ${opts.length} choices in stock (${units} items): ${inStock.map((p) => esc(p.name_cn || p.name_en)).join(", ") || "none"}` : "No products in this category yet. Add one under Products and pick this category."}${bad && opts.length ? " · not enough stock, so this menu shows as sold out" : bad ? " The menu shows as sold out until then." : ""}</div>
+      <div class="ticks">${list.length ? list.map((p) => `<label class="tick ${opts.has(p.id) ? "on" : ""}"><input type="checkbox" data-opt="${esc(p.id)}" ${opts.has(p.id) ? "checked" : ""}>
+        <img src="${esc(p.image_url)}" alt=""><span><span class="cn">${esc(p.name_cn || p.name_en)}</span>
+        <span class="muted small">${p.price == null ? (s.is_gift ? "" : "no price · ") : money(p.price) + " · "}cost ${money(p.cost)} · ${p.stock} left</span></span></label>`).join("")
+        : `<span class="muted small">No products in this category yet. Add one under Products.</span>`}</div>
     </div>`;
   }
   function renderBundles() {
@@ -477,61 +530,64 @@
     if (!bundles.length) { $("#bundles").innerHTML = `<div class="empty">No menus yet.</div>`; return; }
     $("#bundles").innerHTML = bundles.map((b) => {
       const slots = [...(b.bundle_slots || [])].sort((x, y) => x.sort - y.sort || x.id - y.id);
-      const cost = slots.reduce((a, s) => {
-        const c = products.filter((p) => p.active && p.category === s.category).map((p) => Number(p.cost));
-        return a + (c.length ? Math.max(...c) : 0) * s.qty;
-      }, 0);
-      return `<div class="bcard ${b.active && b.price != null ? "" : "off"}" data-bid="${esc(b.id)}">
+      return `<div class="bcard ${b.active ? "" : "off"}" data-bid="${esc(b.id)}">
         <div class="bfields">
           <label class="mini"><span>Name (中文)</span><input data-b="name_cn" value="${esc(b.name_cn)}" maxlength="80"></label>
           <label class="mini"><span>Name (English)</span><input data-b="name_en" value="${esc(b.name_en)}" maxlength="100"></label>
           <label class="mini"><span>Short description</span><input data-b="description" value="${esc(b.description)}" maxlength="200"></label>
-          <label class="mini"><span>Price €</span><input data-b="price" inputmode="decimal" value="${b.price == null ? "" : Number(b.price).toFixed(2)}" placeholder="— not in shop"></label>
         </div>
         <div class="slots">${slots.map(slotRow).join("")}</div>
         <div class="head">
           <button class="btn small" type="button" data-addslot>+ Add a choice</button>
           <label class="check"><input type="checkbox" data-b="active" ${b.active ? "checked" : ""}> In shop</label>
-          <span class="muted small pv">Highest possible cost ≈ ${money(cost)}${b.price != null ? ` · lowest profit ≈ ${money(Number(b.price) - cost)}` : ""}</span>
           <span class="rowsave" style="margin-left:auto"><span class="saved" hidden>Saved</span><button class="btn small primary" type="button" data-bsave>Save menu</button></span>
         </div>
+        <div class="preview">${pricePreview(slots.map((s) => ({ ...s, options: s.options || [] })))}</div>
       </div>`;
     }).join("");
   }
-  $("#bundles").addEventListener("change", (e) => {
-    const sel = e.target.closest("[data-s=category]"); if (!sel) return;
-    const row = sel.closest(".slotrow");
-    const s = readSlot(row); const tmp = document.createElement("div"); tmp.innerHTML = slotRow(s);
-    row.replaceWith(tmp.firstElementChild);
-  });
   function readSlot(row, i) {
+    const gift = $("[data-s=is_gift]", row).checked;
     return {
       id: row.dataset.sid ? Number(row.dataset.sid) : null,
       label_cn: $("[data-s=label_cn]", row).value.trim(), label_en: $("[data-s=label_en]", row).value.trim(),
-      category: $("[data-s=category]", row).value, qty: parseInt($("[data-s=qty]", row).value, 10) || 0,
-      is_gift: $("[data-s=is_gift]", row).checked, sort: (i ?? 0) * 10
+      category: $("[data-s=category]", row).value, qty: gift ? (parseInt($("[data-s=qty]", row).value, 10) || 0) : 1,
+      is_gift: gift, sort: (i ?? 0) * 10,
+      options: $$("[data-opt]", row).filter((x) => x.checked).map((x) => x.dataset.opt)
     };
   }
+  function refreshPreview(card) { $(".preview", card).innerHTML = pricePreview($$(".slotrow", card).map(readSlot)); }
+  $("#bundles").addEventListener("change", (e) => {
+    const card = e.target.closest(".bcard"); if (!card) return;
+    const row = e.target.closest(".slotrow");
+    if (row && (e.target.matches("[data-s=category]") || e.target.matches("[data-s=is_gift]"))) {
+      const tmp = document.createElement("div"); tmp.innerHTML = slotRow(readSlot(row));
+      row.replaceWith(tmp.firstElementChild);
+    }
+    if (e.target.matches("[data-opt]")) e.target.closest(".tick").classList.toggle("on", e.target.checked);
+    refreshPreview(card);
+  });
+  $("#bundles").addEventListener("input", (e) => { if (e.target.matches("[data-s=qty]")) refreshPreview(e.target.closest(".bcard")); });
   $("#bundles").addEventListener("click", async (e) => {
     const card = e.target.closest(".bcard"); if (!card) return;
     const bid = card.dataset.bid;
     if (e.target.closest("[data-addslot]")) {
-      const tmp = document.createElement("div"); tmp.innerHTML = slotRow({ label_cn: "", label_en: "", category: "drink", qty: 1, is_gift: false });
+      const tmp = document.createElement("div"); tmp.innerHTML = slotRow({ label_cn: "", label_en: "", category: "drink", qty: 1, is_gift: false, options: [] });
       $(".slots", card).appendChild(tmp.firstElementChild); return;
     }
     const rm = e.target.closest("[data-sremove]");
-    if (rm) { const row = rm.closest(".slotrow"); if (row.dataset.sid) (removedSlots[bid] ||= []).push(Number(row.dataset.sid)); row.remove(); return; }
+    if (rm) { const row = rm.closest(".slotrow"); if (row.dataset.sid) (removedSlots[bid] ||= []).push(Number(row.dataset.sid)); row.remove(); refreshPreview(card); return; }
     const sv = e.target.closest("[data-bsave]"); if (!sv) return;
-    const price = num($("[data-b=price]", card).value);
-    if (Number.isNaN(price) || (price !== null && price < 0)) return toast("Price must be a number, e.g. 7.90");
     const slots = $$(".slotrow", card).map(readSlot);
     if (!slots.length) return toast("Add at least one choice.");
+    if (!slots.some((s) => !s.is_gift)) return toast("A menu needs at least one paid choice (not a gift).");
     if (slots.some((s) => !s.label_cn && !s.label_en)) return toast("Give every choice a label.");
     if (slots.some((s) => !(s.qty >= 1 && s.qty <= 20))) return toast("How many must be 1–20.");
+    if (slots.some((s) => !s.options.length)) return toast("Tick at least one item in every choice.");
     sv.disabled = true;
     try {
       await API.updateBundle(bid, { name_cn: $("[data-b=name_cn]", card).value.trim(), name_en: $("[data-b=name_en]", card).value.trim(),
-        description: $("[data-b=description]", card).value.trim(), price, active: $("[data-b=active]", card).checked });
+        description: $("[data-b=description]", card).value.trim(), active: $("[data-b=active]", card).checked });
       await API.saveSlots(bid, slots, removedSlots[bid] || []);
       removedSlots[bid] = [];
       await loadBundles();
@@ -540,8 +596,8 @@
   });
   $("#add-bundle").onclick = async () => {
     try {
-      await API.addBundle({ id: "set-" + Date.now().toString(36), name_cn: "新套餐", name_en: "New menu", price: null, active: true, sort: (bundles.length + 1) * 10 });
-      await loadBundles(); toast("Menu added. Add its choices and a price, then Save.");
+      await API.addBundle({ id: "set-" + Date.now().toString(36), name_cn: "新套餐", name_en: "New menu", price: null, active: false, sort: (bundles.length + 1) * 10 });
+      await loadBundles(); toast("Menu added (switched off). Add choices, tick items, then switch it on and Save.");
     } catch (ex) { toast("Couldn't add: " + ex.message); }
   };
 

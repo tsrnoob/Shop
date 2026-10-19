@@ -1,0 +1,243 @@
+-- =====================================================================
+--  v3: each menu choice lists the exact products you ticked, and the
+--  menu price is calculated per combination:
+--     price = round UP to 10 cents of
+--             max( paid items' shop prices − discount ,  all costs (gifts at the
+--                  most expensive ticked option) + minimum profit )
+--  Defaults: discount €1.00 (only when possible), minimum profit €1.50 (always).
+--  Additive only.
+-- =====================================================================
+
+alter table public.bundle_slots add column if not exists options text[] not null default '{}';
+alter table public.settings add column if not exists bundle_discount numeric(6,2) not null default 1.00;
+alter table public.settings add column if not exists bundle_min_profit numeric(6,2) not null default 1.50;
+
+-- tick everything that currently matches each choice's category
+update public.bundle_slots s
+   set options = coalesce((select array_agg(p.id order by p.sort, p.created_at) from public.products p
+                           where p.category = s.category and p.active), '{}')
+ where s.options = '{}';
+
+create or replace function private.bundle_price(p_retail numeric, p_cost numeric) returns numeric
+language sql stable set search_path = public, private as $$
+  select (ceil(greatest(p_retail - st.bundle_discount, p_cost + st.bundle_min_profit) * 10) / 10)::numeric(8,2)
+  from public.settings st where st.id = 1
+$$;
+
+-- every combination of the paid choices (one product each) with its price.
+-- Gift choices are not part of the combination; their cost is counted at the
+-- most expensive ticked option so the minimum profit holds whatever is picked.
+create or replace function private.bundle_combos(p_bundle text)
+returns table (picks text[], retail numeric, cost numeric, price numeric)
+language sql stable security definer set search_path = public, private as $$
+  with recursive
+  paid as (
+    select row_number() over (order by s.sort, s.id) as rn, s.id, s.qty, s.options
+    from bundle_slots s where s.bundle_id = p_bundle and not s.is_gift
+  ),
+  gifts as (
+    select s.qty, (select max(p.cost) from products p where p.id = any (s.options) and p.active) as worst
+    from bundle_slots s where s.bundle_id = p_bundle and s.is_gift
+  ),
+  gift_cost as (
+    select case when bool_or(worst is null) then null else coalesce(sum(worst * qty), 0) end as c from gifts
+  ),
+  r (n, picks, retail, cost) as (
+    select 0::bigint, '{}'::text[], 0::numeric, 0::numeric
+    union all
+    select r.n + 1, r.picks || p.id, r.retail + p.price * s.qty, r.cost + p.cost * s.qty
+    from r
+    join paid s on s.rn = r.n + 1
+    join products p on p.id = any (s.options) and p.active and p.price is not null
+  )
+  select r.picks, r.retail, r.cost + g.c, private.bundle_price(r.retail, r.cost + g.c)
+  from r, gift_cost g
+  where r.n = (select count(*) from paid) and r.n > 0 and g.c is not null
+$$;
+
+-- ---------- shop data: menus now come with their priced combinations ----------
+create or replace function public.get_shop() returns json
+language sql stable security definer set search_path = public, private as $$
+  select json_build_object(
+    'settings', (select json_build_object(
+        'shop_name', shop_name, 'wechat_contact', wechat_contact, 'locations', locations,
+        'preorder_days', preorder_days, 'max_qty', max_qty, 'notice', notice,
+        'earliest_preorder', private.berlin_today() + preorder_days)
+      from settings where id = 1),
+    'products', coalesce((select json_agg(json_build_object(
+        'id', id, 'name_cn', name_cn, 'name_en', name_en, 'meta', meta, 'image_url', image_url,
+        'price', price, 'stock', stock, 'preorder_ok', preorder_ok,
+        'category', category, 'on_shelf', on_shelf) order by sort, created_at)
+      from products where active), '[]'::json),
+    'bundles', coalesce((select json_agg(x.j order by x.sort, x.created_at) from (
+        select b.sort, b.created_at, json_build_object(
+          'id', b.id, 'name_cn', b.name_cn, 'name_en', b.name_en, 'description', b.description,
+          'slots', (select coalesce(json_agg(json_build_object(
+              'id', s.id, 'label_cn', s.label_cn, 'label_en', s.label_en, 'category', s.category,
+              'qty', s.qty, 'is_gift', s.is_gift,
+              'options', (select coalesce(json_agg(p.id order by p.sort, p.created_at), '[]'::json)
+                          from products p where p.id = any (s.options) and p.active)
+            ) order by s.sort, s.id), '[]'::json)
+            from bundle_slots s where s.bundle_id = b.id),
+          'combos', (select json_agg(json_build_object('p', c.picks, 'price', c.price, 'retail', c.retail))
+                     from private.bundle_combos(b.id) c)
+        ) as j
+        from bundles b
+        where b.active and exists (select 1 from private.bundle_combos(b.id))
+      ) x), '[]'::json)
+  )
+$$;
+
+-- ---------- place an order: menu price is worked out here, never trusted from the browser ----------
+create or replace function public.shop_place_order(
+  p_session uuid, p_note text, p_items jsonb, p_wanted_date date default null, p_location text default null
+) returns json
+language plpgsql volatile security definer set search_path = public, private as $$
+declare
+  s settings%rowtype;
+  c customers%rowtype;
+  loc text;
+  line jsonb; pick record;
+  pid text; q int; pre boolean;
+  p products%rowtype;
+  b bundles%rowtype;
+  sl bundle_slots%rowtype;
+  o orders%rowtype;
+  ob_id bigint;
+  has_pre boolean := false;
+  tot numeric(10,2) := 0;
+  seen text[] := '{}';
+  slot_sum int; n_keys int;
+  b_retail numeric; b_cost numeric; b_price numeric; worst numeric;
+  summary text := '';
+begin
+  c := private.session_customer(p_session);
+  select * into s from settings where id = 1;
+  loc := coalesce(nullif(btrim(coalesce(p_location, '')), ''), s.locations[1]);
+  if not (loc = any (s.locations)) then
+    raise exception using errcode = 'P0001', message = 'bad_location';
+  end if;
+  if p_items is null or jsonb_typeof(p_items) <> 'array'
+     or jsonb_array_length(p_items) = 0 or jsonb_array_length(p_items) > 30 then
+    raise exception using errcode = 'P0001', message = 'empty_cart';
+  end if;
+  if (select count(*) from orders where customer_id = c.id and status in ('new','confirmed')) >= s.max_open_orders then
+    raise exception using errcode = 'P0001', message = 'too_many_open_orders';
+  end if;
+
+  select bool_or(coalesce((x->>'preorder')::boolean, false)) into has_pre from jsonb_array_elements(p_items) x;
+  if has_pre then
+    if p_wanted_date is null
+       or p_wanted_date < private.berlin_today() + s.preorder_days
+       or p_wanted_date > private.berlin_today() + 90 then
+      raise exception using errcode = 'P0001', message = 'bad_preorder_date';
+    end if;
+  end if;
+
+  insert into orders (code, wechat_id, customer_id, location, note, wanted_date)
+  values (private.new_order_code(), c.wechat_id, c.id, loc, left(btrim(coalesce(p_note, '')), 300),
+          case when has_pre then p_wanted_date end)
+  returning * into o;
+
+  for line in select * from jsonb_array_elements(p_items) loop
+    q := coalesce((line->>'qty')::int, 0);
+    if q < 1 or q > s.max_qty then raise exception using errcode = 'P0001', message = 'bad_qty'; end if;
+
+    if line ? 'bundle' then
+      select * into b from bundles where id = line->>'bundle';
+      if not found or not b.active then
+        raise exception using errcode = 'P0001', message = 'unavailable:' || coalesce(line->>'bundle', '?');
+      end if;
+      if jsonb_typeof(line->'picks') is distinct from 'object' then
+        raise exception using errcode = 'P0001', message = 'bad_picks:' || b.id;
+      end if;
+      insert into order_bundles (order_id, bundle_id, name_cn, name_en, qty, unit_price)
+      values (o.id, b.id, b.name_cn, b.name_en, q, 0) returning id into ob_id;
+      b_retail := 0; b_cost := 0;
+      summary := summary || q || '× ' || coalesce(nullif(b.name_cn, ''), b.name_en) || ':' || E'\n';
+
+      for sl in select * from bundle_slots where bundle_id = b.id order by sort, id loop
+        if jsonb_typeof(line->'picks'->(sl.id::text)) is distinct from 'object' then
+          raise exception using errcode = 'P0001', message = 'bad_picks:' || b.id;
+        end if;
+        slot_sum := 0; n_keys := 0;
+        for pick in select key, value from jsonb_each(line->'picks'->(sl.id::text)) loop
+          if jsonb_typeof(pick.value) <> 'number' or (pick.value)::text::int < 0 then
+            raise exception using errcode = 'P0001', message = 'bad_picks:' || b.id;
+          end if;
+          continue when (pick.value)::text::int = 0;
+          slot_sum := slot_sum + (pick.value)::text::int;
+          n_keys := n_keys + 1;
+        end loop;
+        -- paid choices: exactly one product; gifts: any mix that adds up
+        if slot_sum <> sl.qty or (not sl.is_gift and n_keys <> 1) then
+          raise exception using errcode = 'P0001', message = 'bad_picks:' || b.id;
+        end if;
+        if sl.is_gift then
+          select max(pp.cost) into worst from products pp where pp.id = any (sl.options) and pp.active;
+          if worst is null then raise exception using errcode = 'P0001', message = 'unavailable:' || b.id; end if;
+          b_cost := b_cost + worst * sl.qty;
+        end if;
+        for pick in select key, (value)::text::int as n from jsonb_each(line->'picks'->(sl.id::text)) loop
+          continue when pick.n = 0;
+          select * into p from products where id = pick.key for update;
+          if not found or not p.active or not (p.id = any (sl.options)) then
+            raise exception using errcode = 'P0001', message = 'unavailable:' || pick.key;
+          end if;
+          if not sl.is_gift then
+            if p.price is null then raise exception using errcode = 'P0001', message = 'unavailable:' || pick.key; end if;
+            b_retail := b_retail + p.price * pick.n;
+            b_cost := b_cost + p.cost * pick.n;
+          end if;
+          if p.stock < pick.n * q then
+            raise exception using errcode = 'P0001', message = 'out_of_stock:' || pick.key;
+          end if;
+          update products set stock = stock - pick.n * q where id = p.id;
+          insert into order_items (order_id, product_id, name_cn, name_en, qty, preorder, unit_price, unit_cost, order_bundle_id, is_gift)
+          values (o.id, p.id, p.name_cn, p.name_en, pick.n * q, false, 0, p.cost, ob_id, sl.is_gift);
+          summary := summary || '   ' || (pick.n * q) || '× ' || coalesce(nullif(p.name_cn, ''), p.name_en)
+                     || case when sl.is_gift then ' (gift)' else '' end || E'\n';
+        end loop;
+      end loop;
+
+      b_price := private.bundle_price(b_retail, b_cost);
+      update order_bundles set unit_price = b_price where id = ob_id;
+      tot := tot + q * b_price;
+
+    else
+      pid := line->>'id';
+      pre := coalesce((line->>'preorder')::boolean, false);
+      if pid is null then raise exception using errcode = 'P0001', message = 'bad_qty'; end if;
+      if (pid || ':' || pre::text) = any (seen) then
+        raise exception using errcode = 'P0001', message = 'duplicate_line';
+      end if;
+      seen := seen || (pid || ':' || pre::text);
+      select * into p from products where id = pid for update;
+      if not found or not p.active or not p.on_shelf or p.price is null then
+        raise exception using errcode = 'P0001', message = 'unavailable:' || pid;
+      end if;
+      if pre then
+        if not p.preorder_ok then raise exception using errcode = 'P0001', message = 'no_preorder:' || pid; end if;
+      else
+        if p.stock < q then raise exception using errcode = 'P0001', message = 'out_of_stock:' || pid; end if;
+        update products set stock = stock - q where id = pid;
+      end if;
+      insert into order_items (order_id, product_id, name_cn, name_en, qty, preorder, unit_price, unit_cost)
+      values (o.id, pid, p.name_cn, p.name_en, q, pre, p.price, p.cost);
+      tot := tot + q * p.price;
+      summary := summary || q || '× ' || coalesce(nullif(p.name_cn, ''), p.name_en)
+                 || case when pre then ' (preorder)' else '' end || E'\n';
+    end if;
+  end loop;
+
+  update orders set total = tot where id = o.id;
+
+  perform private.notify_owner(
+    case when has_pre then 'New preorder ' else 'New order ' end || o.code || ' · €' || to_char(tot, 'FM9990.00'),
+    'WeChat: ' || c.wechat_id || ' (' || c.username || ')' || E'\n' || 'Where: ' || loc
+      || case when has_pre then E'\nPreorder for: ' || to_char(p_wanted_date, 'Dy DD.MM.') else '' end
+      || E'\n' || summary
+      || case when o.note <> '' then 'Note: ' || o.note else '' end);
+
+  return json_build_object('code', o.code, 'total', tot, 'wanted_date', o.wanted_date, 'location', loc);
+end $$;

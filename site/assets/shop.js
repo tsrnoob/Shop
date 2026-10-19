@@ -13,7 +13,21 @@
   const byId = () => Object.fromEntries(shop.products.map((p) => [p.id, p]));
   const name = (x) => x.name_cn || x.name_en;
   const shelfProducts = () => shop.products.filter((p) => p.on_shelf && p.price != null);
-  const optionsFor = (cat) => shop.products.filter((p) => p.category === cat);
+  const optsOf = (slot) => { const P = byId(); return (slot.options || []).map((id) => P[id]).filter(Boolean); };
+  const paidSlots = (b) => b.slots.filter((s) => !s.is_gift);
+  const giftSlots = (b) => b.slots.filter((s) => s.is_gift);
+  // combination price for the chosen paid items (null if that combination isn't offered)
+  function comboFor(b, picks) {
+    const ids = paidSlots(b).map((s) => Object.keys(picks[s.id] || {}).find((pid) => picks[s.id][pid] > 0));
+    if (ids.some((x) => !x)) return null;
+    return (b.combos || []).find((c) => c.p.every((pid, i) => pid === ids[i])) || null;
+  }
+  // menus split into one card per price; combinations with the same price share a card
+  function tiersOf(b) {
+    const m = new Map();
+    for (const c of b.combos || []) { const k = Number(c.price).toFixed(2); if (!m.has(k)) m.set(k, []); m.get(k).push(c); }
+    return [...m.entries()].sort((x, y) => Number(x[0]) - Number(y[0])).map(([price, combos]) => ({ price: Number(price), combos }));
+  }
 
   // ---------- toast ----------
   let toastT;
@@ -102,10 +116,10 @@
   }
   const freeStock = (pid, exceptKey) => (byId()[pid]?.stock || 0) - (needs(exceptKey)[pid] || 0);
 
-  // Can this set be filled at all right now?
-  function setAvailable(b) {
-    return b.slots.length > 0 && b.slots.every((s) => optionsFor(s.category).reduce((a, p) => a + Math.max(0, freeStock(p.id)), 0) >= s.qty);
-  }
+  // Can this price group be filled right now?
+  const giftsOk = (b) => giftSlots(b).every((s) => optsOf(s).reduce((a, p) => a + Math.max(0, freeStock(p.id)), 0) >= s.qty);
+  const comboInStock = (b, c) => paidSlots(b).every((s, i) => freeStock(c.p[i]) >= s.qty);
+  const tierAvailable = (b, tier) => giftsOk(b) && tier.combos.some((c) => comboInStock(b, c));
 
   // ---------- cart ----------
   const singleKey = (id, pre) => "p:" + id + (pre ? ":pre" : "");
@@ -121,8 +135,8 @@
         const ok = b && b.slots.length === Object.keys(l.picks).length && b.slots.every((s) => {
           const picks = l.picks[s.id]; if (!picks) return false;
           const total = Object.values(picks).reduce((a, c) => a + c, 0);
-          return total === s.qty && Object.keys(picks).every((pid) => P[pid] && P[pid].category === s.category);
-        });
+          return total === s.qty && Object.keys(picks).every((pid) => P[pid] && (s.options || []).includes(pid));
+        }) && comboFor(b, l.picks);
         if (!ok) { delete cart[k]; notes.push(`${b ? name(b) : "a meal set"} changed, please choose again`); continue; }
         if (l.qty > max) l.qty = max;
         continue;
@@ -169,7 +183,7 @@
     toast(pre ? "已加入预订 Added as preorder" : "已加入 Added to cart");
   }
   function lineTotal(l) {
-    if (l.bundle) { const b = shop.bundles.find((x) => x.id === l.bundle); return b ? l.qty * b.price : 0; }
+    if (l.bundle) { const b = shop.bundles.find((x) => x.id === l.bundle); const c = b && comboFor(b, l.picks); return c ? l.qty * c.price : 0; }
     const p = byId()[l.id]; return p ? l.qty * p.price : 0;
   }
   function renderCartBar() {
@@ -182,78 +196,125 @@
 
   // ---------- meal sets ----------
   function renderSets() {
-    const sets = shop.bundles;
-    $("#sets-section").hidden = !sets.length;
-    $("#sets").innerHTML = sets.map((b) => {
-      const ok = setAvailable(b);
-      const imgs = b.slots.map((s) => optionsFor(s.category).find((p) => p.stock > 0) || optionsFor(s.category)[0]).filter(Boolean).slice(0, 3);
-      return `<article class="set ${ok ? "" : "soldout"}">
-        <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
-        <div class="info">
-          <div class="n-cn">${esc(b.name_cn)}</div>
-          <div class="n-en">${esc(b.name_en)}</div>
-          <ul class="slots">${b.slots.map((s) => `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span>${s.is_gift ? ' <span class="gift">送 free</span>' : ""}</li>`).join("")}</ul>
-          <div class="row"><span class="tag">${money(b.price)}</span>
-            ${ok ? `<button class="btn small primary" type="button" data-set="${esc(b.id)}">选择 Choose</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
-        </div>
-      </article>`;
-    }).join("");
+    const cards = [];
+    for (const b of shop.bundles) {
+      for (const tier of tiersOf(b)) {
+        const ok = tierAvailable(b, tier);
+        const P = byId();
+        // what this price group offers in each paid choice
+        const perSlot = paidSlots(b).map((s, i) => [...new Set(tier.combos.map((c) => c.p[i]))].map((id) => P[id]).filter(Boolean));
+        const saves = tier.combos.map((c) => Number(c.retail) - Number(c.price));
+        const maxSave = Math.max(...saves), minSave = Math.min(...saves);
+        const saveTxt = maxSave > 0.005 ? (Math.abs(maxSave - minSave) < 0.005 ? `省 ${money(maxSave)} · save ${money(maxSave)}` : `最多省 ${money(maxSave)} · save up to ${money(maxSave)}`) : "";
+        const first = tier.combos.find((c) => comboInStock(b, c)) || tier.combos[0];
+        const imgs = [...first.p.map((id) => P[id]), ...giftSlots(b).map((s) => optsOf(s).find((p) => p.stock > 0) || optsOf(s)[0])].filter(Boolean).slice(0, 3);
+        let si = 0;
+        const lines = b.slots.map((s) => {
+          if (s.is_gift) return `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> <span class="gift">送 free</span></li>`;
+          const items = perSlot[si++];
+          return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span>: <span class="choices">${items.map((p) => esc(p.name_cn || p.name_en)).join(" / ")}</span></li>`;
+        }).join("");
+        cards.push(`<article class="set ${ok ? "" : "soldout"}">
+          <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
+          <div class="info">
+            <div class="n-cn">${esc(b.name_cn)}</div>
+            <div class="n-en">${esc(b.name_en)}</div>
+            <ul class="slots">${lines}</ul>
+            <div class="row"><span class="price-wrap"><span class="tag">${money(tier.price)}</span>${saveTxt ? `<span class="save">${saveTxt}</span>` : ""}</span>
+              ${ok ? `<button class="btn small primary" type="button" data-set="${esc(b.id)}" data-tier="${tier.price.toFixed(2)}">选择 Choose</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
+          </div>
+        </article>`);
+      }
+    }
+    $("#sets-section").hidden = !cards.length;
+    $("#sets").innerHTML = cards.join("");
   }
 
-  // configurator
-  let picking = null; // {b, picks: {slotId: {pid: n}}}
-  function openSet(b) {
-    picking = { b, picks: {} };
-    for (const s of b.slots) {
-      picking.picks[s.id] = {};
-      const opts = optionsFor(s.category).filter((p) => freeStock(p.id) > 0);
-      if (s.qty === 1 && opts.length === 1) picking.picks[s.id][opts[0].id] = 1; // only one choice: preselect
-    }
-    $("#set-title").textContent = name(b);
+  // configurator for one price group
+  let picking = null; // {b, tier, picks: {slotId: {pid: n}}}
+  function openSet(b, tier) {
+    picking = { b, tier, picks: {} };
+    for (const s of b.slots) picking.picks[s.id] = {};
+    autoPick();
+    $("#set-title").textContent = `${name(b)} · ${money(tier.price)}`;
     renderPicker();
     openSheet("#set-sheet");
   }
+  // paid options still possible in this price group, given what's already picked in the other paid choices
+  function paidOptions(i) {
+    const { b, tier, picks } = picking;
+    const ps = paidSlots(b);
+    const chosen = ps.map((s) => Object.keys(picks[s.id]).find((pid) => picks[s.id][pid] > 0));
+    const ok = new Set();
+    for (const c of tier.combos) {
+      if (!comboInStock(b, c)) continue;
+      if (ps.every((_, j) => j === i || !chosen[j] || chosen[j] === c.p[j])) ok.add(c.p[i]);
+    }
+    return ok;
+  }
+  function allPaidOptions(i) { return [...new Set(picking.tier.combos.map((c) => c.p[i]))]; }
+  // preselect any choice that has only one possibility
+  function autoPick() {
+    const { b, picks } = picking;
+    paidSlots(b).forEach((s, i) => {
+      if (Object.keys(picks[s.id]).length) return;
+      const ok = [...paidOptions(i)];
+      if (ok.length === 1) picks[s.id] = { [ok[0]]: s.qty };
+    });
+    for (const s of giftSlots(b)) {
+      if (Object.keys(picks[s.id]).length) continue;
+      const inStock = optsOf(s).filter((p) => freeStock(p.id) >= s.qty);
+      if (optsOf(s).filter((p) => freeStock(p.id) > 0).length === 1 && inStock.length === 1) picks[s.id] = { [inStock[0].id]: s.qty };
+    }
+  }
   function slotCount(sid) { return Object.values(picking.picks[sid]).reduce((a, c) => a + c, 0); }
   function renderPicker() {
-    const { b } = picking;
+    const { b, tier } = picking;
+    const P = byId();
+    let pi = -1;
     $("#set-slots").innerHTML = b.slots.map((s) => {
-      const opts = optionsFor(s.category);
+      const isPaid = !s.is_gift; if (isPaid) pi++;
+      const opts = isPaid ? allPaidOptions(pi).map((id) => P[id]).filter(Boolean) : optsOf(s);
+      const possible = isPaid ? paidOptions(pi) : null;
       const have = slotCount(s.id);
+      const single = isPaid || s.qty === 1;
       const head = `<div class="slot-head"><b>${esc(s.label_cn)}</b> <span class="muted">${esc(s.label_en)}</span>
         ${s.is_gift ? '<span class="gift">送 free</span>' : ""}<span class="count ${have === s.qty ? "done" : ""}">${have}/${s.qty}</span></div>`;
       if (!opts.length) return `<div class="slot">${head}<div class="hint">暂时没有 · Nothing available right now</div></div>`;
       return `<div class="slot">${head}<div class="opts">${opts.map((p) => {
         const n = picking.picks[s.id][p.id] || 0;
         const free = freeStock(p.id) - otherSlotUse(s.id, p.id);
-        const out = free <= 0 && !n;
-        const ctrl = s.qty === 1
+        const out = !n && (isPaid ? !possible.has(p.id) : free <= 0);
+        const why = !out ? esc(p.meta || p.name_en) : (free <= 0 ? "售罄 sold out" : "不能和已选的搭配 · not with your other pick");
+        const ctrl = single
           ? `<span class="radio ${n ? "on" : ""}" aria-hidden="true"></span>`
           : `<span class="stepper"><button type="button" data-dec="${s.id}|${esc(p.id)}" ${n ? "" : "disabled"} aria-label="One less">−</button><span>${n}</span><button type="button" data-inc="${s.id}|${esc(p.id)}" ${have >= s.qty || free <= 0 ? "disabled" : ""} aria-label="One more">+</button></span>`;
-        return `<${s.qty === 1 ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${s.qty === 1 && !out ? `data-pick="${s.id}|${esc(p.id)}"` : ""} ${s.qty === 1 && out ? "disabled" : ""}>
+        return `<${single ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${single && !out ? `data-pick="${s.id}|${esc(p.id)}|${s.qty}"` : ""} ${single && out ? "disabled" : ""}>
           <img src="${esc(p.image_url)}" alt="">
-          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${out ? "售罄 sold out" : esc(p.meta || p.name_en)}</span></span>
+          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span></span>
           ${ctrl}
-        </${s.qty === 1 ? "button" : "div"}>`;
+        </${single ? "button" : "div"}>`;
       }).join("")}</div></div>`;
     }).join("");
-    const complete = b.slots.every((s) => slotCount(s.id) === s.qty);
+    const complete = b.slots.every((s) => slotCount(s.id) === s.qty) && comboFor(b, picking.picks);
     const btn = $("#set-add");
     btn.disabled = !complete;
-    btn.textContent = complete ? `加入购物车 Add to cart · ${money(b.price)}` : "请选择 Choose everything above";
+    btn.textContent = complete ? `加入购物车 Add to cart · ${money(tier.price)}` : "请选择 Choose everything above";
     $("#set-err").hidden = true;
   }
-  // same product picked in another slot of this set (e.g. if two slots share a category)
+  // same product picked in another choice of this set
   function otherSlotUse(sid, pid) {
     let n = 0; for (const [s, picks] of Object.entries(picking.picks)) if (s !== String(sid)) n += picks[pid] || 0; return n;
   }
   $("#set-slots").addEventListener("click", (e) => {
     const pick = e.target.closest("[data-pick]"), inc = e.target.closest("[data-inc]"), dec = e.target.closest("[data-dec]");
     const el = pick || inc || dec; if (!el) return;
-    const [sid, pid] = (el.dataset.pick || el.dataset.inc || el.dataset.dec).split("|");
+    const [sid, pid, q] = (el.dataset.pick || el.dataset.inc || el.dataset.dec).split("|");
     const slot = picking.picks[sid];
-    if (pick) { picking.picks[sid] = { [pid]: 1 }; }
+    if (pick) picking.picks[sid] = slot[pid] ? {} : { [pid]: Number(q) || 1 };
     else if (inc) slot[pid] = (slot[pid] || 0) + 1;
     else if (dec) { slot[pid] = Math.max(0, (slot[pid] || 0) - 1); if (!slot[pid]) delete slot[pid]; }
+    autoPick();
     renderPicker();
   });
   $("#set-add").onclick = () => {
@@ -310,7 +371,11 @@
     const b = e.target.closest("[data-bump]");
     if (b) { bump(b.dataset.bump, Number(b.dataset.d)); return; }
     const s = e.target.closest("[data-set]");
-    if (s) { const set = shop.bundles.find((x) => x.id === s.dataset.set); if (set) openSet(set); }
+    if (s) {
+      const set = shop.bundles.find((x) => x.id === s.dataset.set);
+      const tier = set && tiersOf(set).find((t) => t.price.toFixed(2) === s.dataset.tier);
+      if (tier) openSet(set, tier);
+    }
   });
 
   // ---------- sheets ----------

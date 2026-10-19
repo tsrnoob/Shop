@@ -1,0 +1,41 @@
+import sys
+from playwright.sync_api import sync_playwright
+OUT = sys.argv[1]; BASE = "http://localhost:8765/"; errors = []
+def watch(p, tag):
+    p.on("console", lambda m: errors.append(f"{tag} console: {m.text}") if m.type == "error" and "ERR_FAILED" not in m.text else None)
+    p.on("pageerror", lambda e: errors.append(f"{tag} pageerror: {e}"))
+    p.route("**/fonts.*/**", lambda r: r.abort())
+with sync_playwright() as pw:
+    b = pw.chromium.launch()
+    ctx = b.new_context(viewport={"width": 390, "height": 844}, device_scale_factor=2)
+    pg = ctx.new_page(); watch(pg, "shop")
+    pg.goto(BASE + "index.html"); pg.wait_for_timeout(300)
+    pg.fill("#login-user", "lin2002"); pg.fill("#login-pass", "test"); pg.click("#login-btn"); pg.wait_for_timeout(500)
+    print("set cards:", [x.inner_text().split("\n")[0] for x in pg.query_selector_all("article.set .tag")])
+    pg.screenshot(path=f"{OUT}/c1-sets.png", full_page=True)
+    cards = pg.query_selector_all("[data-set='set-a']")
+    print("set-a tiers:", [c.get_attribute("data-tier") for c in cards])
+    pg.click("[data-set='set-a'][data-tier='6.20']"); pg.wait_for_timeout(300)
+    pg.screenshot(path=f"{OUT}/c2-picker.png", full_page=False)
+    print("mains offered in 6.20:", [o.inner_text().split("\n")[0] for o in pg.query_selector_all(".slot:nth-child(1) .opt")])
+    pass
+    pg.click("[data-inc^='3|wl-pc-sour']"); pg.click("[data-inc^='3|wl-pc-sour']"); pg.click("[data-inc^='3|wl-pc-spicy']"); pg.wait_for_timeout(100)
+    print("add:", pg.inner_text("#set-add"))
+    pg.click("#set-add"); pg.wait_for_timeout(300)
+    pg.click("#open-cart"); pg.wait_for_timeout(300)
+    print("cart total:", pg.inner_text("#cart-sum"))
+    pg.click("#co-submit"); pg.wait_for_timeout(500)
+    print("done:", pg.inner_text(".done p").split("\n")[0])
+    op = ctx.new_page(); watch(op, "owner")
+    op.set_viewport_size({"width": 1280, "height": 900})
+    op.goto(BASE + "owner.html"); op.wait_for_timeout(300)
+    op.fill("#si-email", "owner@test"); op.fill("#si-pass", "test"); op.click("#signin-form button[type=submit]"); op.wait_for_timeout(800)
+    op.click("[data-tab=menus]"); op.wait_for_timeout(400)
+    op.screenshot(path=f"{OUT}/c3-menus.png", full_page=True)
+    # untick one main and see preview change
+    before = op.inner_text(".bcard >> nth=0 >> .preview")
+    op.click(".bcard >> nth=0 >> [data-opt='5885']"); op.wait_for_timeout(200)
+    after = op.inner_text(".bcard >> nth=0 >> .preview")
+    print("preview changes on untick:", before != after)
+    b.close()
+print("\n".join(errors) if errors else "no page errors")

@@ -66,7 +66,7 @@
       <h2>Products</h2>
       <button class="btn primary" id="add-product" type="button">+ Add product</button>
     </div>
-    <p class="hint"><b>In shop</b> switches a product on or off everywhere. <b>Sell alone</b> shows it as a single item (it needs a price); with it off, the product is only used inside meal sets (like the single 魔芋爽 packs). The <b>category</b> decides which meal-set choice it appears in. Press Save on the row after changes.</p>
+    <p class="hint"><b>In shop</b> switches a product on or off everywhere. <b>Sell alone</b> shows it as a single item (it needs a price); with it off, the product is only used inside meal sets (like the single 魔芋爽 packs). The <b>category</b> groups products in the menu editor. Press Save on the row after changes.</p>
     <div id="products" class="plist"></div>
   </section>
 
@@ -76,7 +76,7 @@
       <h2>Menus · 套餐</h2>
       <button class="btn primary" id="add-bundle" type="button">+ New menu</button>
     </div>
-    <p class="hint">Each menu has choices. A choice lets the customer pick any product of that <b>category</b> that is in stock, so new drinks or waters show up automatically once you add them as products with that category. A menu appears in the shop once it has a price and is switched on.</p>
+    <p class="hint">Tick which products each choice offers. Prices are calculated for every combination: the shop prices of the paid items minus <b class="num" id="mh-disc">€1.00</b> when possible, but always at least <b class="num" id="mh-minp">€1.50</b> profit (free gifts counted at the most expensive ticked one), rounded up to 10 cents. Combinations with the same price appear as one card in the shop. Change the two amounts under Settings.</p>
     <div id="bundles" class="blist"></div>
   </section>
 
@@ -136,6 +136,11 @@
         <label class="field"><span>Max per product per order</span><input id="st-max" type="number" min="1" max="99" inputmode="numeric"></label>
         <label class="field"><span>Max open orders per customer</span><input id="st-open" type="number" min="1" max="50" inputmode="numeric"></label>
       </div>
+      <div class="grid3">
+        <label class="field"><span>Menu discount target (€)</span><input id="st-disc" inputmode="decimal"></label>
+        <label class="field"><span>Menu minimum profit (€)</span><input id="st-minp" inputmode="decimal"></label>
+      </div>
+      <p class="hint">Menus cost the single prices minus the discount target when possible, and never give less than the minimum profit.</p>
       <label class="field"><span>Banner message on the shop (optional)</span><input id="st-notice" maxlength="200" placeholder="e.g. Back on Monday · 周一回来"></label>
       <label class="field"><span>Phone notifications: ntfy topic</span><input id="st-ntfy" maxlength="64" autocapitalize="none" spellcheck="false" placeholder="e.g. garching-snacks-k39x7q"></label>
       <p class="hint">Install the free <b>ntfy</b> app, subscribe to this exact topic name, and you'll get a push for every new order. Pick something long and random; anyone who knows it can read the notifications.</p>

@@ -3,12 +3,14 @@
   const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
   const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "guest19191231",
-    locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null };
+    locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 1.00, bundle_min_profit: 1.50 };
   const P = [
     ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
     ["5886", "自嗨锅 川式卤肉盖浇饭", "Zihaiguo Sichuan Braised Pork Rice (self-heating)", "Self-heating rice box · 262 g", 5.00, 3.57, 2, "main", true],
     ["5888", "小龙坎 自热蔬菜火锅 酸辣金汤味", "Shoo Loong Kan Veg Hot Pot, Hot & Sour Golden Soup", "Self-heating · 312 g", 4.50, 3.02, 0, "main", true],
     ["5892", "自嗨锅 菌菇牛肉煲仔饭", "Zihaiguo Mushroom Beef Claypot Rice (self-heating)", "Self-heating cup · 245 g", 4.00, 2.63, 2, "main", true],
+    ["5893", "自嗨锅 鱼香肉丝煲仔饭", "Zihaiguo Yu-Xiang Shredded Pork Claypot Rice (self-heating)", "Self-heating cup", 4.00, 2.63, 2, "main", true],
+    ["5891", "小龙坎 自热蔬菜火锅 麻辣清油味", "Shoo Loong Kan Veg Hot Pot, Spicy Clear Oil", "Self-heating · 312 g", 4.50, 3.02, 2, "main", true],
     ["5889", "卧龙锅巴 麻辣味", "Wolong Crispy Rice Crackers, Spicy Mala", "Bag · 200 g", 3.00, 2.22, 2, "guoba", true],
     ["5890", "良品铺子 小米锅巴 麻辣味", "Bestore Millet Crispy Rice, Spicy", "Bag · 90 g", 2.00, 1.06, 4, "guoba", true],
     ["5896", "喜之郎 CiCi 果汁果冻 芒果味", "Strong CiCi Drinkable Jelly, Mango", "Pouch", 2.50, 1.02, 9, "drink", true],
@@ -21,15 +23,27 @@
     price, cost, stock, purchased: Math.max(stock, 2), active: true, preorder_ok: on_shelf, sort: i * 10, category, on_shelf, created_at: new Date().toISOString() }));
   const B = [
     { id: "set-a", name_cn: "套餐A：饭/火锅 + 饮料 + 送3包魔芋爽", name_en: "Set A: rice or hot pot + drink + 3 free konjac packs", description: "", price: 7.90, active: true, sort: 10,
-      bundle_slots: [{ id: 1, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10 },
-                     { id: 2, label_cn: "饮料", label_en: "Drink", category: "drink", qty: 1, is_gift: false, sort: 20 },
-                     { id: 3, label_cn: "魔芋爽 ×3", label_en: "Konjac × 3", category: "konjac", qty: 3, is_gift: true, sort: 30 }] },
+      bundle_slots: [{ id: 1, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10, options: ["5885", "5886", "5888", "5891", "5892", "5893"] },
+                     { id: 2, label_cn: "饮料", label_en: "Drink", category: "drink", qty: 1, is_gift: false, sort: 20, options: ["5896"] },
+                     { id: 3, label_cn: "魔芋爽", label_en: "Konjac packs", category: "konjac", qty: 3, is_gift: true, sort: 30, options: ["wl-pc-sour", "wl-pc-spicy", "wl-pc-mala"] }] },
     { id: "set-b", name_cn: "套餐B：饭/火锅 + 锅巴 + 送550ml矿泉水", name_en: "Set B: rice or hot pot + guoba + free 550 ml water", description: "", price: 7.50, active: true, sort: 20,
-      bundle_slots: [{ id: 4, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10 },
-                     { id: 5, label_cn: "锅巴", label_en: "Guoba", category: "guoba", qty: 1, is_gift: false, sort: 20 },
-                     { id: 6, label_cn: "矿泉水", label_en: "Water", category: "water", qty: 1, is_gift: true, sort: 30 }] }
+      bundle_slots: [{ id: 4, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10, options: ["5885", "5886", "5888", "5891", "5892", "5893"] },
+                     { id: 5, label_cn: "锅巴", label_en: "Guoba", category: "guoba", qty: 1, is_gift: false, sort: 20, options: ["5889", "5890"] },
+                     { id: 6, label_cn: "矿泉水", label_en: "Water", category: "water", qty: 1, is_gift: true, sort: 30, options: [] }] }
   ];
   let slotSeq = 7;
+  const cents = (x) => Math.round(Number(x) * 100);
+  function combos(b) {
+    const prod = (id) => P.find((p) => p.id === id && p.active);
+    const slots = [...b.bundle_slots].sort((x, y) => x.sort - y.sort || x.id - y.id);
+    const paid = slots.filter((s) => !s.is_gift), gifts = slots.filter((s) => s.is_gift);
+    let giftC = 0;
+    for (const g of gifts) { const cs = g.options.map(prod).filter(Boolean).map((p) => cents(p.cost)); if (!cs.length) return []; giftC += Math.max(...cs) * g.qty; }
+    if (!paid.length) return [];
+    let acc = [{ p: [], r: 0, c: 0 }];
+    for (const s of paid) acc = acc.flatMap((a) => s.options.map(prod).filter((p) => p && p.price != null).map((p) => ({ p: [...a.p, p.id], r: a.r + cents(p.price), c: a.c + cents(p.cost) })));
+    return acc.map((a) => ({ p: a.p, retail: a.r / 100, price: Math.ceil(Math.max(a.r - cents(S.bundle_discount), a.c + giftC + cents(S.bundle_min_profit)) / 10) * 10 / 100 }));
+  }
   const C = [{ id: 1, username: "lin2002", wechat_id: "wxid_lin2002", note: "MI", pw: "test", active: true, failed_logins: 0, locked_until: null, last_login_at: null, created_at: new Date().toISOString() }];
   const sessions = JSON.parse(sessionStorage.getItem("mock.sessions") || "{}");
   const saveSess = () => sessionStorage.setItem("mock.sessions", JSON.stringify(sessions));
@@ -43,7 +57,9 @@
     for (const l of o.items) {
       if (l.bundle) {
         const b = B.find((x) => x.id === l.bundle); const obid = ibid++;
-        obs.push({ id: obid, bundle_id: b.id, name_cn: b.name_cn, name_en: b.name_en, qty: l.qty, unit_price: b.price }); total += l.qty * b.price;
+        const paidIds = [...b.bundle_slots].sort((x, y) => x.sort - y.sort).filter((s) => !s.is_gift).map((s) => Object.keys(l.picks[s.id] || {})[0]);
+        const cb = combos(b).find((c) => c.p.every((id, i) => id === paidIds[i])); if (!cb) err("bad_picks:" + b.id);
+        obs.push({ id: obid, bundle_id: b.id, name_cn: b.name_cn, name_en: b.name_en, qty: l.qty, unit_price: cb.price }); total += l.qty * cb.price;
         for (const s of b.bundle_slots) {
           const picks = l.picks[s.id] || {}; const sum = Object.values(picks).reduce((a, n) => a + n, 0);
           if (sum !== s.qty) err("bad_picks:" + b.id);
@@ -69,7 +85,7 @@
     configured: true,
     getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
       products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => p),
-      bundles: B.filter((b) => b.active && b.price != null).map((b) => ({ ...b, slots: b.bundle_slots })) }),
+      bundles: B.filter((b) => b.active && combos(b).length).map((b) => ({ ...b, slots: [...b.bundle_slots].sort((x, y) => x.sort - y.sort), combos: combos(b) })) }),
     async login(u, pw) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
       if (!c || c.pw !== pw) err("bad_login"); if (!c.active) err("account_disabled");
       const t = crypto.randomUUID(); sessions[t] = c.id; saveSess(); c.last_login_at = new Date().toISOString(); return { token: t, username: c.username, wechat_id: c.wechat_id }; },
