@@ -64,7 +64,7 @@ From then on, every new order, preorder and customer cancellation sends a push t
 On the owner page:
 
 - **Products**: set a price for each product (they're hidden until they have one), check stock. Each change saves by itself.
-- **Settings**: check the meeting spots (one per line), your WeChat ID (`guest19191231`), the shop name, and the preorder days (5).
+- **Settings**: check the meeting spots (one per line), your WeChat ID (`tsrnoob`), the shop name, and the preorder days (5).
 - Place a test order yourself on the shop, check it shows up on the owner page and that the notification arrives, then **Cancel** it there. Cancelling puts the items back in stock.
 
 Then send the link to people after they add you on WeChat.

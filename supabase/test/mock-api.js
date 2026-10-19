@@ -2,7 +2,7 @@
 (function () {
   const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
-  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "guest19191231",
+  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob",
     locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 1.00, bundle_min_profit: 1.50 };
   const P = [
     ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
