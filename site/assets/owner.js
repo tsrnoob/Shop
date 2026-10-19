@@ -376,6 +376,40 @@
     catch (ex) { err.textContent = "Couldn't record: " + ex.message; err.hidden = false; }
   });
 
+  // ---------- open / closed ----------
+  // Closing sets every product's stock to 0; customers then see the shop as closed (preorders still work).
+  function renderShopState() {
+    const box = $("#shopstate"), btn = $("#shopstate-btn");
+    if (!settings) return;
+    const open = settings.shop_open !== false;
+    box.hidden = false; box.classList.toggle("closed", !open);
+    $("#shopstate-txt").innerHTML = open ? "<b>Shop is open</b> · customers can order what's in stock" : "<b>Shop is closed</b> · customers see it closed (preorders still work)";
+    btn.textContent = open ? "Close for today" : "Open shop";
+    btn.className = "btn small " + (open ? "" : "primary");
+    delete btn.dataset.confirm;
+  }
+  $("#shopstate-btn").addEventListener("click", async () => {
+    const btn = $("#shopstate-btn"), open = settings.shop_open !== false;
+    if (open && btn.dataset.confirm !== "1") {
+      btn.dataset.confirm = "1"; btn.textContent = "Tap again: set ALL stock to 0";
+      setTimeout(() => { if (btn.dataset.confirm === "1") renderShopState(); }, 5000);
+      return;
+    }
+    btn.disabled = true;
+    try {
+      if (open) {
+        const r = await API.closeShop();
+        toast(`Shop closed. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`);
+      } else {
+        await API.openShop();
+        const any = products.some((p) => p.stock > 0);
+        toast(any ? "Shop is open" : "Shop is open, but every stock is 0. Add today's stock on Products.");
+      }
+      await Promise.all([loadSettings(), loadProducts()]);
+    } catch (ex) { toast("Couldn't change it: " + ex.message); renderShopState(); }
+    finally { btn.disabled = false; }
+  });
+
   // ---------- settings ----------
   async function loadSettings() {
     try { settings = await API.getSettings(); } catch (e) { return; }
@@ -386,6 +420,7 @@
     $("#st-disc").value = Number(settings.bundle_discount ?? 1).toFixed(2); $("#st-minp").value = Number(settings.bundle_min_profit ?? 1.5).toFixed(2);
     $("#mh-disc").textContent = money(settings.bundle_discount ?? 1); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
     renderBundles();
+    renderShopState();
     $("#st-notice").value = settings.notice || ""; $("#st-ntfy").value = settings.ntfy_topic || ""; $("#st-owner").textContent = settings.owner_email;
   }
   $("#settings-form").addEventListener("submit", async (e) => {

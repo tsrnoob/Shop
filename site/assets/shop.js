@@ -103,6 +103,7 @@
     $("#pre-days").textContent = s.preorder_days;
     $("#area-name").textContent = (s.locations || [])[0] || "Garching";
     $("#notice").hidden = !s.notice; $("#notice").textContent = s.notice || "";
+    $("#closedbar").hidden = s.shop_open !== false;
     reconcileCart(true);
     renderAll();
   }
@@ -515,6 +516,7 @@
     too_many_open_orders: () => "你还有未完成的订单 · You already have several open orders. Message me on WeChat or wait until they're delivered.",
     bad_qty: () => `每样最多 ${shop.settings.max_qty} 件 · Max ${shop.settings.max_qty} of each.`,
     empty_cart: () => "购物车是空的 · Your cart is empty.",
+    shop_closed: () => "已打烊 · The shop just closed. Only preorders can be placed right now.",
     not_configured: () => "The shop isn't set up yet."
   };
   $("#checkout").addEventListener("input", () => ($("#co-err").hidden = true));
@@ -545,6 +547,8 @@
       if (/^(out_of_stock|unavailable|no_preorder|bad_picks):/.test(c)) {
         await loadShop(); reconcileCart(false); renderCart();
         showErr("有商品刚刚卖完或有变动 · Something in your cart just sold out or changed. Your cart was updated; check it and try again.");
+      } else if (c === "shop_closed") {
+        await loadShop(); reconcileCart(false); renderCart(); showErr(ERR.shop_closed());
       } else showErr((ERR[c] && ERR[c]()) || "下单失败 · Couldn't place the order. Check your connection and try again.");
     } finally { btn.disabled = false; btn.textContent = "下单 Place order"; }
   });

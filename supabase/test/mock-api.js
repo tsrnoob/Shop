@@ -2,7 +2,7 @@
 (function () {
   const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
-  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob",
+  const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob", shop_open: true,
     locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 1.00, bundle_min_profit: 1.50 };
   const P = [
     ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
@@ -86,14 +86,14 @@
   window.API = {
     configured: true,
     getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
-      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => p),
+      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => ({ ...p, stock: S.shop_open ? p.stock : 0 })),
       bundles: B.filter((b) => b.active && combos(b).length).map((b) => ({ ...b, slots: [...b.bundle_slots].sort((x, y) => x.sort - y.sort), combos: combos(b) })) }),
     async login(u) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
       if (!c) err("bad_login"); if (!c.active) err("account_disabled");
       const t = crypto.randomUUID(); sessions[t] = c.id; saveSess(); c.last_login_at = new Date().toISOString(); return { token: t, username: c.username, wechat_id: c.wechat_id }; },
     me: async (t) => { await wait(); const c = sessCust(t); return { username: c.username, wechat_id: c.wechat_id }; },
     logout: async (t) => { delete sessions[t]; saveSess(); },
-    placeOrder: async (o) => { await wait(); const c = sessCust(o.session); const r = place(c, o); return { code: r.code, total: r.total, wanted_date: r.wanted_date, location: r.location }; },
+    placeOrder: async (o) => { await wait(); const c = sessCust(o.session); if (!S.shop_open && o.items.some((l) => l.bundle || !l.preorder)) err("shop_closed"); const r = place(c, o); return { code: r.code, total: r.total, wanted_date: r.wanted_date, location: r.location }; },
     myOrders: async (t) => { const c = sessCust(t); return wait(O.filter((o) => o.customer_id === c.id).map((o) => ({ ...o, items: o.order_items, bundles: o.order_bundles }))); },
     cancelOrder: async (t, code) => { const c = sessCust(t); const o = O.find((x) => x.code === code && x.customer_id === c.id); if (o.status !== "new") err("cannot_cancel"); cancel(o); return wait({ status: "cancelled" }); },
 
@@ -101,6 +101,8 @@
     signIn: async (e, p) => { if (e !== S.owner_email || p !== "test") err("Invalid login credentials"); sessionStorage.setItem("mock.owner", "1"); },
     signOut: async () => sessionStorage.removeItem("mock.owner"),
     isOwner: async () => signedIn(),
+    closeShop: async () => { let n = 0; for (const p of P) if (p.stock) { p.stock = 0; n++; } S.shop_open = false; return wait({ cleared: n }); },
+    openShop: async () => { S.shop_open = true; return wait(); },
     listOrders: () => wait(O),
     setStatus: async (id, st) => { const o = O.find((x) => x.id === id); if (st === "cancelled") cancel(o); else o.status = st; return wait(); },
     listProducts: () => wait([...P].sort((a, b) => a.sort - b.sort)),
