@@ -15,6 +15,9 @@
   --sign-fg: #ffffff;
   --ok: #1f7a4a;
   --warn: #a35c00;
+  --pre: #3346b8;
+  --pre-fg: #ffffff;
+  --pre-soft: #eef0fc;
   --shadow: 0 10px 30px rgba(40, 10, 5, .18);
   --f-cn: "Noto Sans SC", "PingFang SC", "Microsoft YaHei", sans-serif;
   --f-body: "Figtree", system-ui, -apple-system, "Segoe UI", sans-serif;
@@ -25,7 +28,7 @@
 @media (prefers-color-scheme: dark) {
   :root {
     --bg: #171211; --surface: #221b1a; --sunk: #1b1514; --fg: #f3ebe8; --muted: #a8968f; --line: #3a2f2c;
-    --accent: #ff5a4c; --accent-fg: #1a0d0b; --tag: #f2c935; --tag-fg: #1a1412; --ok: #5cc98c; --warn: #f0a650;
+    --accent: #ff5a4c; --accent-fg: #1a0d0b; --tag: #f2c935; --tag-fg: #1a1412; --ok: #5cc98c; --warn: #f0a650; --pre: #8d9bff; --pre-fg: #111433; --pre-soft: #23263f;
     --shadow: 0 10px 30px rgba(0, 0, 0, .5);
     color-scheme: dark;
   }
@@ -144,7 +147,7 @@ h1, h2, h3 { margin: 0; text-wrap: balance; }
 .stepper button { border: 0; background: var(--sunk); width: 34px; height: 34px; font-size: 1.1rem; font-weight: 700; cursor: pointer; }
 .stepper button:disabled { opacity: .35; cursor: not-allowed; }
 .stepper span { min-width: 30px; text-align: center; font: 600 .95rem var(--f-num); }
-.pre-chip { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--warn); }
+.pre-chip { font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--pre); }
 
 /* ---------- floating cart bar ---------- */
 .cartbar {
@@ -292,3 +295,12 @@ button.opt { cursor: pointer; }
 
 .closedbar { display: flex; flex-direction: column; gap: 2px; margin-top: 12px; padding: 12px 14px; border-radius: 10px; background: var(--accent); color: var(--accent-fg); }
 .closedbar span { font-size: .88rem; opacity: .92; }
+
+/* ---------- preorder look: available to order ahead, not dead ---------- */
+.prod.pre { border-color: var(--pre); box-shadow: inset 0 0 0 1px var(--pre); }
+.stock.prebadge { display: inline-flex; align-items: center; gap: 5px; background: var(--pre); color: var(--pre-fg); border-color: var(--pre); }
+.prenote { display: flex; gap: 7px; align-items: flex-start; margin-top: 4px; padding: 7px 9px; border-radius: 8px; background: var(--pre-soft); color: var(--pre); font-size: .76rem; line-height: 1.35; font-weight: 600; }
+.prenote svg { flex: none; margin-top: 2px; }
+.prenote b { font-weight: 800; }
+.btn.prebtn { background: var(--pre); border-color: var(--pre); color: var(--pre-fg); font-weight: 700; }
+.btn.prebtn:hover { filter: brightness(1.08); }

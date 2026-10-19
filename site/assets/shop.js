@@ -421,18 +421,21 @@
       const pre = out && p.preorder_ok;
       const k = singleKey(p.id, pre);
       const inCart = cart[k]?.qty || 0;
-      const stockLabel = out ? "售罄 Sold out" : p.stock <= 3 ? `仅剩 ${p.stock} left` : `${p.stock} in stock`;
+      const cal = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M4 0h1.5v2h5V0H12v2h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h2zM2.5 6v8.5h11V6z"/></svg>`;
+      const badge = pre ? `<span class="stock prebadge">${cal} 可预订 Preorder</span>`
+        : out ? `<span class="stock out">售罄 Sold out</span>`
+        : `<span class="stock ${p.stock <= 3 ? "low" : ""}">${p.stock <= 3 ? `仅剩 ${p.stock} left` : `${p.stock} in stock`}</span>`;
       let action;
       if (out && !p.preorder_ok) action = `<button class="btn small" disabled>售罄 Sold out</button>`;
       else if (inCart) action = stepper(k, inCart, lineMaxSingle(p, pre, k));
-      else action = `<button class="btn small ${pre ? "" : "primary"}" type="button" data-add="${esc(p.id)}" data-pre="${pre ? 1 : 0}">${pre ? "预订 Preorder" : "加入 Add"}</button>`;
-      return `<article class="prod ${out ? "soldout" : ""}">
-        <div class="ph"><img src="${esc(p.image_url)}" alt="${esc(p.name_en)}" loading="lazy"><span class="stock ${out ? "out" : p.stock <= 3 ? "low" : ""}">${stockLabel}</span></div>
+      else action = `<button class="btn small ${pre ? "prebtn" : "primary"}" type="button" data-add="${esc(p.id)}" data-pre="${pre ? 1 : 0}">${pre ? "预订 Preorder" : "加入 Add"}</button>`;
+      return `<article class="prod ${pre ? "pre" : out ? "soldout" : ""}">
+        <div class="ph"><img src="${esc(p.image_url)}" alt="${esc(p.name_en)}" loading="lazy">${badge}</div>
         <div class="info">
           <div class="n-cn">${esc(p.name_cn)}</div>
           <div class="n-en">${esc(p.name_en)}</div>
           ${p.meta ? `<div class="meta">${esc(p.meta)}</div>` : ""}
-          ${pre ? `<div class="pre-chip">预订 · ready in ${shop.settings.preorder_days}+ days</div>` : ""}
+          ${pre ? `<div class="prenote">${cal}<span>今天没货，可以预订<br>Out today · preorder from <b>${esc(fmtDate(shop.settings.earliest_preorder))}</b></span></div>` : ""}
           <div class="row"><span class="tag">${money(p.price)}</span>${action}</div>
         </div>
       </article>`;
