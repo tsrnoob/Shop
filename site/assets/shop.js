@@ -238,16 +238,49 @@
     const members = shop.bundles.filter((b) => (b.combos || []).length);
     if (!members.length) return;
     picking = { members };
-    setMember(Math.max(0, members.findIndex(setOk)));
-    $("#set-title").textContent = members.length > 1 ? "套餐 Meal set" : name(members[0]);
+    // step 1: pick the set (skipped when there is only one); step 2: pick its items
+    if (members.length > 1) { picking.step = "set"; renderPicker(); }
+    else setMember(0);
     openSheet("#set-sheet");
   }
   function setMember(mi) {
     const b = picking.members[mi];
-    Object.assign(picking, { mi, b, tier: allTier(b), picks: {} });
+    Object.assign(picking, { step: "items", mi, b, tier: allTier(b), picks: {} });
     for (const s of b.slots) picking.picks[s.id] = {};
     autoPick();
     renderPicker();
+    $("#set-sheet .sheet").scrollTop = 0;
+  }
+  // step 1: one big card per set with what's in it
+  function renderSetStep() {
+    const { members } = picking;
+    $("#set-title").textContent = "选择套餐 · Choose a meal set";
+    $("#set-slots").innerHTML = `<div class="setpick-list">${members.map((m, i) => {
+      const ok = setOk(m);
+      const cs = m.combos.filter((c) => comboInStock(m, c));
+      const imgs = memberImgs(m).slice(0, 3);
+      const sv = ok ? fmtSave(saveRange(cs)) : "";
+      const lines = m.slots.map((s) => {
+        if (s.is_gift) {
+          const o = optsOf(s);
+          const what = o.length === 1 ? (o[0].name_cn || o[0].name_en) : s.label_cn;
+          return `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(what)}${o.length > 1 ? " <span class=\"muted\">(口味任选 any flavour)</span>" : ""} <span class="gift">送 free</span></li>`;
+        }
+        const n = new Set(m.combos.map((c) => c.p[paidSlots(m).indexOf(s)])).size;
+        return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> · ${n} 种 choice${n === 1 ? "" : "s"}</li>`;
+      }).join("");
+      return `<button type="button" class="setpick ${ok ? "" : "out"}" ${ok ? `data-member="${i}"` : "disabled"}>
+        <span class="setpick-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="">`).join("")}</span>
+        <span class="setpick-body">
+          <span class="n-cn">${esc(m.name_cn)}</span>
+          <span class="n-en">${esc(m.name_en)}</span>
+          <ul class="slots">${lines}</ul>
+          <span class="setpick-foot">${ok ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}<span class="go">选这个 Choose →</span>` : `<span class="muted">售罄 Sold out</span>`}</span>
+        </span>
+      </button>`;
+    }).join("")}</div>`;
+    $("#set-add").hidden = true;
+    $("#set-err").hidden = true;
   }
   // combinations still possible if this product is taken in paid choice i, given the other picks
   function combosWith(i, pid) {
@@ -285,20 +318,13 @@
   }
   function slotCount(sid) { return Object.values(picking.picks[sid]).reduce((a, c) => a + c, 0); }
   function renderPicker() {
-    const { b, members, mi } = picking;
+    if (picking.step === "set") return renderSetStep();
+    const { b, members } = picking;
     const P = byId();
     let pi = -1;
-    // which set, when there are several
-    const chooser = members.length < 2 ? "" : `<div class="slot"><div class="slot-head"><b>选择套餐</b> <span class="muted">Choose a set</span></div><div class="opts">${members.map((m, i) => {
-      const ok = setOk(m), img = memberImgs(m)[0];
-      const cs = m.combos.filter((c) => comboInStock(m, c));
-      const info = ok ? `${money(Math.min(...cs.map((c) => Number(c.price))))} 起 from` : "";
-      const sv = ok ? fmtSave(saveRange(cs)) : "";
-      return `<button type="button" class="opt ${i === mi ? "on" : ""} ${ok ? "" : "out"}" ${ok ? `data-member="${i}"` : "disabled"}>
-        <img src="${esc(img?.image_url || "")}" alt="">
-        <span class="t"><span class="n-cn">${esc(m.name_cn)}</span><span class="sub">${ok ? info : "售罄 sold out"}</span>${sv ? `<span class="save">${sv}</span>` : ""}</span>
-        <span class="radio ${i === mi ? "on" : ""}" aria-hidden="true"></span></button>`;
-    }).join("")}</div></div>`;
+    $("#set-title").textContent = name(b);
+    $("#set-add").hidden = false;
+    const chooser = members.length < 2 ? "" : `<button type="button" class="backbar" data-back>← 换套餐 <span class="muted">Change set</span></button>`;
     $("#set-slots").innerHTML = chooser + b.slots.map((s) => {
       const isPaid = !s.is_gift; if (isPaid) pi++;
       const opts = isPaid ? allPaidOptions(pi).map((id) => P[id]).filter(Boolean) : optsOf(s);
@@ -310,6 +336,13 @@
       const head = `<div class="slot-head"><b>${esc(s.label_cn)}</b> <span class="muted">${esc(s.label_en)}</span>
         ${s.is_gift ? '<span class="gift">送 free</span>' : ""}<span class="count ${have === s.qty ? "done" : ""}">${have}/${s.qty}</span></div>`;
       if (!opts.length) return `<div class="slot">${head}<div class="hint">暂时没有 · Nothing available right now</div></div>`;
+      if (!isPaid && opts.length === 1) {
+        const p = opts[0];
+        return `<div class="slot">${head}<div class="opts"><div class="opt on fixed">
+          <img src="${esc(p.image_url)}" alt="">
+          <span class="t"><span class="n-cn">${s.qty > 1 ? s.qty + " × " : ""}${esc(p.name_cn)}</span><span class="sub">${esc(p.meta || p.name_en)}</span><span class="save">送 free · 已包含 included</span></span>
+          <span class="tickmark" aria-hidden="true">✓</span></div></div></div>`;
+      }
       return `<div class="slot">${head}<div class="opts">${opts.map((p) => {
         const n = picking.picks[s.id][p.id] || 0;
         const free = isPaid ? freeStock(p.id) - otherSlotUse(s.id, p.id) : Infinity; // gifts are never sold out
@@ -345,6 +378,7 @@
     let n = 0; for (const [s, picks] of Object.entries(picking.picks)) if (s !== String(sid)) n += picks[pid] || 0; return n;
   }
   $("#set-slots").addEventListener("click", (e) => {
+    if (e.target.closest("[data-back]")) { picking.step = "set"; renderPicker(); $("#set-sheet .sheet").scrollTop = 0; return; }
     const mem = e.target.closest("[data-member]");
     if (mem) { const i = Number(mem.dataset.member); if (i !== picking.mi) setMember(i); return; }
     const pick = e.target.closest("[data-pick]"), inc = e.target.closest("[data-inc]"), dec = e.target.closest("[data-dec]");

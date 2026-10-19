@@ -17,9 +17,10 @@
     ["wl252", "卫龙 魔芋爽 酸辣素毛肚", "Weilong Konjac Shuang, Sour & Hot", "Bag · 252 g (28 pieces)", null, 2.76, 1, "snack", true],
     ["wl-pc-sour", "卫龙 魔芋爽 酸辣 (单包)", "Weilong Konjac Shuang, Sour & Hot (single pack)", "Single pack · for meal sets", null, 0.10, 0, "konjac", false],
     ["wl-pc-spicy", "卫龙 魔芋爽 香辣 (单包)", "Weilong Konjac Shuang, Hot & Spicy (single pack)", "Single pack · for meal sets", null, 0.18, 0, "konjac", false],
-    ["wl-pc-mala", "卫龙 魔芋爽 麻辣 (单包)", "Weilong Konjac Shuang, Numbing & Spicy (single pack)", "Single pack · for meal sets", null, 0.19, 0, "konjac", false]
+    ["wl-pc-mala", "卫龙 魔芋爽 麻辣 (单包)", "Weilong Konjac Shuang, Numbing & Spicy (single pack)", "Single pack · for meal sets", null, 0.19, 0, "konjac", false],
+    ["water-550", "矿泉水 550ml", "Still water 550 ml", "550 ml bottle · for meal sets", null, 0.30, 0, "water", false]
   ].map(([id, cn, en, meta, price, cost, stock, category, on_shelf], i) => ({ id, name_cn: cn, name_en: en, meta,
-    image_url: "img/" + (id.startsWith("wl-pc") ? { "wl-pc-sour": "wl252", "wl-pc-spicy": "wl360", "wl-pc-mala": "wlmala" }[id] : id) + ".jpg",
+    image_url: id === "water-550" ? "img/water.svg" : "img/" + (id.startsWith("wl-pc") ? { "wl-pc-sour": "wl252", "wl-pc-spicy": "wl360", "wl-pc-mala": "wlmala" }[id] : id) + ".jpg",
     price, cost, stock, purchased: Math.max(stock, 2), active: true, preorder_ok: on_shelf, sort: i * 10, category, on_shelf, created_at: new Date().toISOString() }));
   const B = [
     { id: "set-a", name_cn: "套餐A：饭/火锅 + 饮料 + 送3包魔芋爽", name_en: "Set A: rice or hot pot + drink + 3 free konjac packs", description: "", price: 7.90, active: true, sort: 10,
@@ -29,7 +30,7 @@
     { id: "set-b", name_cn: "套餐B：饭/火锅 + 锅巴 + 送550ml矿泉水", name_en: "Set B: rice or hot pot + guoba + free 550 ml water", description: "", price: 7.50, active: true, sort: 20,
       bundle_slots: [{ id: 4, label_cn: "饭 / 火锅", label_en: "Rice or hot pot", category: "main", qty: 1, is_gift: false, sort: 10, options: ["5885", "5886", "5888", "5891", "5892", "5893"] },
                      { id: 5, label_cn: "锅巴", label_en: "Guoba", category: "guoba", qty: 1, is_gift: false, sort: 20, options: ["5889", "5890"] },
-                     { id: 6, label_cn: "矿泉水", label_en: "Water", category: "water", qty: 1, is_gift: true, sort: 30, options: [] }] }
+                     { id: 6, label_cn: "矿泉水", label_en: "Water", category: "water", qty: 1, is_gift: true, sort: 30, options: ["water-550"] }] }
   ];
   let slotSeq = 7;
   const cents = (x) => Math.round(Number(x) * 100);
