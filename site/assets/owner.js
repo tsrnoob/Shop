@@ -370,7 +370,7 @@
       !(patch.max_open_orders >= 1 && patch.max_open_orders <= 50) ? "Max open orders must be 1–50." :
       ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." :
       !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Menu discount must be a number, e.g. 1.00" :
-      !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu minimum profit must be a number, e.g. 1.50" : "";
+      !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu target profit must be a number, e.g. 1.50" : "";
     if (bad) { err.textContent = bad; err.hidden = false; return; }
     err.hidden = true;
     try { await API.saveSettings(patch); toast("Settings saved"); loadSettings(); }
@@ -464,10 +464,10 @@
   }
   const cents = (x) => Math.round(Number(x) * 100);
   const slotsOf = (b) => [...(b.bundle_slots || [])].sort((x, y) => x.sort - y.sort || x.id - y.id);
-  // Same rule as the database: round UP to 10 cents of max(shop prices − discount, costs + minimum profit)
+  // Same rule as the database: round DOWN to 50 cents of max(shop prices − discount, costs + target profit)
   function menuPrice(retailC, costC) {
     const disc = cents(settings?.bundle_discount ?? 1), minp = cents(settings?.bundle_min_profit ?? 1.5);
-    return Math.ceil(Math.max(retailC - disc, costC + minp) / 10) * 10;
+    return Math.floor(Math.max(retailC - disc, costC + minp) / 50) * 50;
   }
   // all paid combinations of a menu, with price, saving and profit
   function menuCombos(slots) {

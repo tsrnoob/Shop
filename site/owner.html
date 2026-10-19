@@ -75,7 +75,7 @@
     <div class="toolbar">
       <h2>Menus · 套餐</h2>
     </div>
-    <p class="hint">Tick which products each choice offers; every tick is saved straight away. A menu can be bought as long as its paid items are in stock. Free gifts never make it sold out: they come out of stock while there is some, otherwise you hand them out from your boxes. Prices are calculated for every combination: the shop prices of the paid items minus <b class="num" id="mh-disc">€1.00</b> when possible, but always at least <b class="num" id="mh-minp">€1.50</b> profit (free gifts counted at the most expensive ticked one), rounded up to 10 cents. Combinations with the same price appear as one card in the shop. Change the two amounts under Settings.</p>
+    <p class="hint">Tick which products each choice offers; every tick is saved straight away. A menu can be bought as long as its paid items are in stock. Free gifts never make it sold out: they come out of stock while there is some, otherwise you hand them out from your boxes. Prices are calculated for every combination: the shop prices of the paid items minus <b class="num" id="mh-disc">€1.00</b> when possible, but aiming for at least <b class="num" id="mh-minp">€1.50</b> profit (free gifts counted at the most expensive ticked one), then rounded <b>down</b> to the nearest 50 cents. Rounding down can take up to 49 cents off the profit. Combinations with the same price appear as one card in the shop. Change the two amounts under Settings.</p>
     <div id="bundles" class="blist"></div>
   </section>
 
@@ -137,9 +137,9 @@
       </div>
       <div class="grid3">
         <label class="field"><span>Menu discount target (€)</span><input id="st-disc" inputmode="decimal"></label>
-        <label class="field"><span>Menu minimum profit (€)</span><input id="st-minp" inputmode="decimal"></label>
+        <label class="field"><span>Menu target profit (€)</span><input id="st-minp" inputmode="decimal"></label>
       </div>
-      <p class="hint">Menus cost the single prices minus the discount target when possible, and never give less than the minimum profit.</p>
+      <p class="hint">Menus cost the single prices minus the discount target when possible, aiming for the target profit, then rounded down to the nearest 50 cents (so profit can end up to 49 cents below the target).</p>
       <label class="field"><span>Banner message on the shop (optional)</span><input id="st-notice" maxlength="200" placeholder="e.g. Back on Monday · 周一回来"></label>
       <label class="field"><span>Phone notifications: ntfy topic</span><input id="st-ntfy" maxlength="64" autocapitalize="none" spellcheck="false" placeholder="e.g. garching-snacks-k39x7q"></label>
       <p class="hint">Install the free <b>ntfy</b> app, subscribe to this exact topic name, and you'll get a push for every new order. Pick something long and random; anyone who knows it can read the notifications.</p>

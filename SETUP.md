@@ -84,7 +84,7 @@ Then send the link to people after they add you on WeChat.
 | Cancel | **Cancel** (tap twice). Items go back in stock automatically |
 | Upcoming preorders | Orders → **Preorders**, sorted by date. Red = due in 2 days or less |
 | Choose what a menu offers | Menus → tick or untick products in each choice. Each tick saves straight away and the prices recalculate (see below) |
-| Change the menu discount / minimum profit | Settings → **Menu discount target** (default €1.00) and **Menu minimum profit** (default €1.50) |
+| Change the menu discount / target profit | Settings → **Menu discount target** (default €1.00) and **Menu target profit** (default €1.50) |
 | New drink or water for the menus | Products → **+ Add product** (category **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
 | Track 魔芋爽 single packs (optional) | Products: add packs to **卫龙 魔芋爽 … (单包)** via **Restock**. Not needed for menus to sell: gifts never make a menu sold out |
 | Bought more stock | Products → **Restock** → number → **Add** |
@@ -99,7 +99,7 @@ Then send the link to people after they add you on WeChat.
 - **Limits**: max 10 of each product per order, and max 5 open orders per WeChat ID (both changeable in Settings). This stops one person from reserving the whole shelf.
 - **Customers can cancel** their own order until you press Confirm.
 - **Accounts**: only people you create on the Customers tab can log in, with just their username (no password). Anyone who knows a username can order as that person, so pick usernames that aren't easy to guess (e.g. `mei-4821`, not `mei`), and you still confirm each order on WeChat. If an account is misused, **Switch off** logs it out everywhere.
-- **Menu prices**: for every combination of paid items, price = their single prices minus the discount target (€1.00), but never less than costs + minimum profit (€1.50), with free gifts counted at the most expensive ticked one. Rounded up to 10 cents. The minimum profit always wins; the discount is only given when there's room.
+- **Menu prices**: for every combination of paid items, price = their single prices minus the discount target (€1.00), but not less than costs + target profit (€1.50), with free gifts counted at the most expensive ticked one. Then rounded **down** to the nearest 50 cents, so the real profit can be up to 49 cents below the target (at least €1.01 with the defaults).
 - **Menu cards**: combinations with the same price share one card in the shop, and the customer can only pick items from that card. A card is sold out only when its paid items (rice/hot pot, drink, guoba) are out of stock.
 - **Free gifts** never block a menu. They're taken off stock while there is some (never below 0), otherwise you hand them out from your boxes; cancelling puts back only what was taken. A gift choice with nothing ticked (the water, until you add a water product) shows as "included" and its cost counts as €0.
 - **Pickup**: with one area in Settings (Garching Forschungszentrum), customers only see it as a reminder; you agree the exact spot on WeChat.

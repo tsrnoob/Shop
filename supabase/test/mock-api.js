@@ -42,7 +42,7 @@
     if (!paid.length) return [];
     let acc = [{ p: [], r: 0, c: 0 }];
     for (const s of paid) acc = acc.flatMap((a) => s.options.map(prod).filter((p) => p && p.price != null).map((p) => ({ p: [...a.p, p.id], r: a.r + cents(p.price), c: a.c + cents(p.cost) })));
-    return acc.map((a) => ({ p: a.p, retail: a.r / 100, price: Math.ceil(Math.max(a.r - cents(S.bundle_discount), a.c + giftC + cents(S.bundle_min_profit)) / 10) * 10 / 100 }));
+    return acc.map((a) => ({ p: a.p, retail: a.r / 100, price: Math.floor(Math.max(a.r - cents(S.bundle_discount), a.c + giftC + cents(S.bundle_min_profit)) / 50) * 50 / 100 }));
   }
   const C = [{ id: 1, username: "lin2002", wechat_id: "wxid_lin2002", note: "MI", pw: "test", active: true, failed_logins: 0, locked_until: null, last_login_at: null, created_at: new Date().toISOString() }];
   const sessions = JSON.parse(sessionStorage.getItem("mock.sessions") || "{}");
