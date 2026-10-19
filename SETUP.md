@@ -2,7 +2,7 @@
 
 There are two pages:
 
-- **Shop** (`tsrnoob.com`): customers log in with an account you created for them, pick single items or a meal set (套餐) with their own choices, and order for pickup in Garching Forschungszentrum. Stock goes down straight away, and when it reaches 0 nobody else can buy that item. Sold-out items can be **preordered** at least 5 days ahead. They pay when you meet (cash, PayPal or WeChat Pay).
+- **Shop** (`tsrnoob.com`): customers log in with an account you created for them, pick single items or a meal set (套餐) with their own choices, and order for pickup in Garching Forschungszentrum. Stock goes down straight away, and when it reaches 0 nobody else can buy that item. Sold-out items can be **preordered**; you tell them on WeChat when it's in. They pay when you meet (cash, PayPal or WeChat Pay).
 - **Owner page** (`yourdomain.com/owner.html`): only your account can open it. There you see orders with WeChat IDs, confirm, deliver or cancel them, change prices, restock, add products with photos, and see your inventory, profit and spending. The shop doesn't link to it. Bookmark it.
 
 Everything is free: **Supabase** (database + your login), **Cloudflare Pages** (hosting), and your **Porkbun** domain (the only cost).
@@ -64,7 +64,7 @@ From then on, every new order, preorder and customer cancellation sends a push t
 On the owner page:
 
 - **Products**: set a price for each product (they're hidden until they have one), check stock. Each change saves by itself.
-- **Settings**: check the meeting spots (one per line), your WeChat ID (`tsrnoob`), the shop name, and the preorder days (5).
+- **Settings**: check the meeting spots (one per line), your WeChat ID (`tsrnoob`) and the shop name.
 - Place a test order yourself on the shop, check it shows up on the owner page and that the notification arrives, then **Cancel** it there. Cancelling puts the items back in stock.
 
 Then send the link to people after they add you on WeChat.
@@ -82,7 +82,7 @@ Then send the link to people after they add you on WeChat.
 | Confirm you've seen it | **Confirm**. After that the customer can no longer cancel it themselves |
 | Handed it over and got paid | **Delivered & paid**. Counts toward Sold and Profit |
 | Cancel | **Cancel** (tap twice). Items go back in stock automatically |
-| Upcoming preorders | Orders → **Preorders**, sorted by date. Red = due in 2 days or less |
+| Open preorders | Orders → **Preorders**, oldest first. Message the customer on WeChat once it's in |
 | Choose what a menu offers | Menus → tick or untick products in each choice. Each tick saves straight away and the prices recalculate (see below) |
 | Change the menu discount / target profit | Settings → **Menu discount target** (default €1.00) and **Menu target profit** (default €1.50) |
 | New drink or water for the menus | Products → **+ Add product** (category **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
@@ -97,7 +97,7 @@ Then send the link to people after they add you on WeChat.
 ## How the rules work
 
 - **Stock** is reserved the moment someone orders. Two people can't buy the last item at the same time (tested with 8 simultaneous orders for 1 item: exactly 1 went through).
-- **Preorders** are only offered when an item is sold out, and need a pickup date at least 5 days away (changeable in Settings). They don't touch stock.
+- **Preorders** are only offered when an item is sold out. There's no date or minimum number of days: you tell the customer on WeChat when it's in. They don't touch stock.
 - **Limits**: max 10 of each product per order, and max 5 open orders per WeChat ID (both changeable in Settings). This stops one person from reserving the whole shelf.
 - **Customers can cancel** their own order until you press Confirm.
 - **Accounts**: only people you create on the Customers tab can log in, with just their username (no password). Anyone who knows a username can order as that person, so pick usernames that aren't easy to guess (e.g. `mei-4821`, not `mei`), and you still confirm each order on WeChat. If an account is misused, **Switch off** logs it out everywhere.

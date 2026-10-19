@@ -89,11 +89,11 @@
       const un = (customers.find((c) => c.id === o.customer_id)?.username || "").toLowerCase();
       if (s && !(o.wechat_id.toLowerCase().includes(s) || o.code.toLowerCase().includes(s) || un.includes(s))) return false;
       if (filter === "open") return (o.status === "new" || o.status === "confirmed");
-      if (filter === "preorder") return o.wanted_date && (o.status === "new" || o.status === "confirmed");
+      if (filter === "preorder") return (o.order_items || []).some((i) => i.preorder) && (o.status === "new" || o.status === "confirmed");
       if (filter === "all") return true;
       return o.status === filter;
     });
-    if (filter === "preorder") list = [...list].sort((a, b) => a.wanted_date.localeCompare(b.wanted_date));
+    if (filter === "preorder") list = [...list].sort((a, b) => a.created_at.localeCompare(b.created_at)); // oldest first
     if (filter === "open") list = [...list].sort((a, b) => (a.status === "new" ? 0 : 1) - (b.status === "new" ? 0 : 1) || b.created_at.localeCompare(a.created_at));
 
     if (!list.length) { $("#orders").innerHTML = `<div class="empty">${filter === "open" ? "No open orders right now." : "Nothing here."}</div>`; return; }
@@ -416,7 +416,7 @@
     $("#shop-label").textContent = settings.shop_name;
     $("#st-name").value = settings.shop_name; $("#st-wechat").value = settings.wechat_contact;
     $("#st-locations").value = (settings.locations || []).join("\n");
-    $("#st-pre").value = settings.preorder_days; $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_orders;
+$("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_orders;
     $("#st-disc").value = Number(settings.bundle_discount ?? 1).toFixed(2); $("#st-minp").value = Number(settings.bundle_min_profit ?? 1.5).toFixed(2);
     $("#mh-disc").textContent = money(settings.bundle_discount ?? 1); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
     renderBundles();
@@ -431,12 +431,11 @@
     const patch = {
       shop_name: $("#st-name").value.trim() || "Garching Snack Shop",
       wechat_contact: $("#st-wechat").value.trim(),
-      locations, preorder_days: parseInt($("#st-pre").value, 10), max_qty: parseInt($("#st-max").value, 10),
+      locations, max_qty: parseInt($("#st-max").value, 10),
       max_open_orders: parseInt($("#st-open").value, 10), notice: $("#st-notice").value.trim() || null, ntfy_topic: ntfy || null,
       bundle_discount: num($("#st-disc").value), bundle_min_profit: num($("#st-minp").value)
     };
     const bad = !locations.length ? "Add at least one meeting spot." :
-      !(patch.preorder_days >= 0 && patch.preorder_days <= 60) ? "Preorder days must be 0–60." :
       !(patch.max_qty >= 1 && patch.max_qty <= 99) ? "Max per product must be 1–99." :
       !(patch.max_open_orders >= 1 && patch.max_open_orders <= 50) ? "Max open orders must be 1–50." :
       ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." :

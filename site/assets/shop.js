@@ -100,7 +100,6 @@
     document.title = s.shop_name || document.title;
     $("#shop-name").textContent = s.shop_name || "Garching Snack Shop";
     document.querySelectorAll(".wechat-contact").forEach((el) => (el.textContent = s.wechat_contact || ""));
-    $("#pre-days").textContent = s.preorder_days;
     $("#area-name").textContent = (s.locations || [])[0] || "Garching";
     $("#notice").hidden = !s.notice; $("#notice").textContent = s.notice || "";
     $("#closedbar").hidden = s.shop_open !== false;
@@ -435,7 +434,7 @@
           <div class="n-cn">${esc(p.name_cn)}</div>
           <div class="n-en">${esc(p.name_en)}</div>
           ${p.meta ? `<div class="meta">${esc(p.meta)}</div>` : ""}
-          ${pre ? `<div class="prenote">${cal}<span>今天没货，可以预订<br>Out today · preorder from <b>${esc(fmtDate(shop.settings.earliest_preorder))}</b></span></div>` : ""}
+          ${pre ? `<div class="prenote">${cal}<span>今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in</span></div>` : ""}
           <div class="row"><span class="tag">${money(p.price)}</span>${action}</div>
         </div>
       </article>`;
@@ -499,13 +498,7 @@
     }
 
     const hasPre = Object.values(cart).some((l) => l.preorder);
-    $("#co-date-wrap").hidden = !hasPre;
-    const d = $("#co-date");
-    d.min = s.earliest_preorder;
-    const max = new Date(s.earliest_preorder); max.setDate(max.getDate() + 85);
-    d.max = max.toISOString().slice(0, 10);
-    if (hasPre && (!d.value || d.value < d.min)) d.value = d.min;
-    $("#co-date-hint").textContent = `Earliest ${fmtDate(s.earliest_preorder)} (${s.preorder_days} days, so I can order it in).`;
+    $("#co-pre-hint").hidden = !hasPre;
     $("#co-err").hidden = true;
   }
   function fmtDate(iso) {
@@ -514,7 +507,7 @@
   }
 
   const ERR = {
-    bad_preorder_date: () => `请选择至少 ${shop.settings.preorder_days} 天后的日期 · Pick a date at least ${shop.settings.preorder_days} days from today.`,
+    bad_preorder_date: () => "预订日期不对 · That preorder date doesn't work.",
     bad_location: () => "请选择地点 · Choose a pickup spot.",
     too_many_open_orders: () => "你还有未完成的订单 · You already have several open orders. Message me on WeChat or wait until they're delivered.",
     bad_qty: () => `每样最多 ${shop.settings.max_qty} 件 · Max ${shop.settings.max_qty} of each.`,
@@ -530,19 +523,17 @@
     const locs = shop.settings.locations || [];
     const location = locs.length > 1 ? $("#co-location").value : locs[0];
     const hasPre = lines.some((l) => l.preorder);
-    const wanted = hasPre ? $("#co-date").value : null;
     const showErr = (m) => { err.textContent = m; err.hidden = false; err.scrollIntoView({ block: "nearest" }); };
     if (!location) return showErr(ERR.bad_location());
-    if (hasPre && (!wanted || wanted < shop.settings.earliest_preorder)) return showErr(ERR.bad_preorder_date());
     err.hidden = true; btn.disabled = true; btn.textContent = "提交中… Placing order…";
     try {
       const res = await API.placeOrder({
-        session: session.token, location, note: $("#co-note").value.trim(), wanted_date: wanted,
+        session: session.token, location, note: $("#co-note").value.trim(), wanted_date: null,
         items: lines.map((l) => l.bundle ? { bundle: l.bundle, qty: l.qty, picks: l.picks } : { id: l.id, qty: l.qty, preorder: !!l.preorder })
       });
       if (locs.length > 1) store.set("shop.location", location);
       cart = {}; saveCart(); $("#co-note").value = "";
-      showDone(res);
+      showDone({ ...res, preorder: hasPre });
       loadShop();
     } catch (ex) {
       const c = ex.code || "";
@@ -563,7 +554,7 @@
     box.className = "done";
     box.innerHTML = `<h3>下单成功 · Order placed</h3>
       <div class="code">${esc(res.code)}</div>
-      <p>Total <b class="num">${money(res.total)}</b> · ${esc(res.location)}${res.wanted_date ? `<br>Preorder for <b>${fmtDate(res.wanted_date)}</b>` : ""}</p>
+      <p>Total <b class="num">${money(res.total)}</b> · ${esc(res.location)}${res.preorder ? "<br>预订：到货后我会微信通知你 · Preorder: I'll tell you on WeChat when it's in." : ""}</p>
       <p class="hint">我会在微信上联系你约时间和地点 · I'll message you on WeChat to arrange the time and spot.<br>Please have cash, PayPal or WeChat Pay ready.</p>
       <button class="btn" type="button" id="done-orders">查看订单 See my orders</button>`;
     $("#cart-body").appendChild(box);
