@@ -151,20 +151,23 @@
     try { products = await API.listProducts(); renderProducts(quiet); renderInventory(); fillSaleSelect(); if (!quiet) renderBundles(); }
     catch (e) { if (!quiet) $("#products").innerHTML = `<div class="empty">Couldn't load products: ${esc(e.message)}</div>`; }
   }
+  const rowOff = (p) => !(p.active && (p.price != null || !p.on_shelf));
+  function flagsOf(p) {
+    const flags = [`<span class="flag">${esc(CATS[p.category] || p.category)}</span>`];
+    if (!p.on_shelf) flags.push(`<span class="flag">Only in meal sets</span>`);
+    else if (p.price == null) flags.push(`<span class="flag warn">No price · not sold alone</span>`);
+    if (!p.active) flags.push(`<span class="flag">Hidden</span>`);
+    if (p.stock <= 0) flags.push(`<span class="flag">Sold out${p.preorder_ok ? " · preorder on" : ""}</span>`);
+    return flags.join("");
+  }
   function renderProducts(keepEdits) {
     // don't wipe a row the owner is typing in
     if (keepEdits && $("#products").contains(document.activeElement) && /INPUT|SELECT/.test(document.activeElement.tagName)) return;
     if (!products.length) { $("#products").innerHTML = `<div class="empty">No products yet. Add your first one.</div>`; return; }
     $("#products").innerHTML = products.map((p) => {
-      const flags = [];
-      flags.push(`<span class="flag">${esc(CATS[p.category] || p.category)}</span>`);
-      if (!p.on_shelf) flags.push(`<span class="flag">Only in meal sets</span>`);
-      else if (p.price == null) flags.push(`<span class="flag warn">No price · not sold alone</span>`);
-      if (!p.active) flags.push(`<span class="flag">Hidden</span>`);
-      if (p.stock <= 0) flags.push(`<span class="flag">Sold out${p.preorder_ok ? " · preorder on" : ""}</span>`);
-      return `<div class="prow ${p.active && (p.price != null || !p.on_shelf) ? "" : "off"}" data-id="${esc(p.id)}">
+      return `<div class="prow ${rowOff(p) ? "off" : ""}" data-id="${esc(p.id)}">
         <img src="${esc(p.image_url)}" alt="" data-open="${esc(p.id)}">
-        <div class="t"><div class="n-cn">${esc(p.name_cn)}</div><div class="n-en">${esc(p.name_en)}</div><div class="flags">${flags.join("")}</div></div>
+        <div class="t"><div class="n-cn">${esc(p.name_cn)}</div><div class="n-en">${esc(p.name_en)}</div><div class="flags">${flagsOf(p)}</div></div>
         <button class="btn small ghost" data-open="${esc(p.id)}">Edit</button>
         <div class="edit">
           <label class="mini"><span>Price €</span><input data-f="price" inputmode="decimal" value="${p.price == null ? "" : Number(p.price).toFixed(2)}" placeholder="—"></label>
@@ -174,7 +177,7 @@
           <label class="mini"><span>Category</span><select data-f="category">${catOptions(p.category)}</select></label>
           <label class="check"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> In shop</label>
           <label class="check"><input type="checkbox" data-f="on_shelf" ${p.on_shelf ? "checked" : ""}> Sell alone</label>
-          <div class="rowsave"><span class="saved" hidden>Saved</span><button class="btn small primary" data-save="${esc(p.id)}">Save</button></div>
+          <div class="rowsave"><span class="saved" hidden>✓ Saved</span></div>
         </div>
       </div>`;
     }).join("");
@@ -190,24 +193,57 @@
       catch (ex) { toast("Couldn't restock: " + ex.message); rs.disabled = false; }
       return;
     }
-    const sv = e.target.closest("[data-save]"); if (!sv) return;
-    const row = sv.closest(".prow"), p = products.find((x) => x.id === sv.dataset.save);
-    const price = num($("[data-f=price]", row).value), cost = num($("[data-f=cost]", row).value);
-    const stock = parseInt($("[data-f=stock]", row).value, 10), was = parseInt($("[data-f=stock]", row).dataset.was, 10);
-    if (Number.isNaN(price) || (price !== null && price < 0)) return toast("Price must be a number, e.g. 2.50");
-    if (cost === null || Number.isNaN(cost) || cost < 0) return toast("Cost must be a number, e.g. 1.06");
-    if (!(stock >= 0)) return toast("Stock must be 0 or more");
-    sv.disabled = true;
+  });
+
+  // Every field saves by itself: price/cost/stock when you leave the box or press Enter,
+  // category and the two switches as soon as you change them.
+  const fmt2 = (v) => (v == null ? "" : Number(v).toFixed(2));
+  async function saveField(el) {
+    const row = el.closest(".prow"); if (!row) return;
+    const p = products.find((x) => x.id === row.dataset.id); if (!p) return;
+    const f = el.dataset.f;
+    const revert = () => {
+      if (f === "price") el.value = fmt2(p.price); else if (f === "cost") el.value = fmt2(p.cost);
+      else if (f === "stock") el.value = p.stock; else if (f === "category") el.value = p.category; else el.checked = !!p[f];
+    };
+    let patch = null, stockTo = null;
+    if (f === "price") {
+      const v = num(el.value);
+      if (Number.isNaN(v) || (v !== null && v < 0)) { toast("Price must be a number, e.g. 2.50"); return revert(); }
+      if ((v === null && p.price == null) || (v !== null && p.price != null && Math.abs(v - Number(p.price)) < 0.005)) return revert();
+      patch = { price: v === null ? null : Math.round(v * 100) / 100 };
+    } else if (f === "cost") {
+      const v = num(el.value);
+      if (v === null || Number.isNaN(v) || v < 0) { toast("Cost must be a number, e.g. 1.06"); return revert(); }
+      if (Math.abs(v - Number(p.cost)) < 0.005) return revert();
+      patch = { cost: Math.round(v * 100) / 100 };
+    } else if (f === "stock") {
+      const v = parseInt(el.value, 10);
+      if (!(v >= 0)) { toast("Stock must be 0 or more"); return revert(); }
+      if (v === p.stock) return;
+      stockTo = v;
+    } else if (f === "category") patch = { category: el.value };
+    else if (f === "active" || f === "on_shelf") patch = { [f]: el.checked };
+    else return;
+    el.disabled = true; row.classList.add("saving");
     try {
-      await API.updateProduct(p.id, { price, cost, active: $("[data-f=active]", row).checked,
-        on_shelf: $("[data-f=on_shelf]", row).checked, category: $("[data-f=category]", row).value });
-      if (stock !== was) await API.setStock(p.id, was, stock);
-      await loadProducts();
-      const r = $(`.prow[data-id="${CSS.escape(p.id)}"] .saved`); if (r) { r.hidden = false; setTimeout(() => (r.hidden = true), 2000); }
+      if (stockTo !== null) { await API.setStock(p.id, p.stock, stockTo); p.stock = stockTo; }
+      else { await API.updateProduct(p.id, patch); Object.assign(p, patch); }
+      revert(); // shows the stored value, nicely formatted
+      $(".flags", row).innerHTML = flagsOf(p);
+      row.classList.toggle("off", rowOff(p));
+      const s = $(".saved", row); s.hidden = false; clearTimeout(s._t); s._t = setTimeout(() => (s.hidden = true), 1500);
+      renderInventory(); fillSaleSelect(); renderBundles();
     } catch (ex) {
-      if (ex.code === "stock_changed") { toast("Stock changed meanwhile (an order came in). Reloaded, check and save again."); await loadProducts(); }
+      revert();
+      if (ex.code === "stock_changed") { toast("Stock changed meanwhile (an order came in). Reloaded, check and change it again."); await loadProducts(); }
       else toast("Couldn't save: " + ex.message);
-    } finally { sv.disabled = false; }
+    } finally { el.disabled = false; row.classList.remove("saving"); }
+  }
+  $("#products").addEventListener("change", (e) => { if (e.target.matches("[data-f]")) saveField(e.target); });
+  $("#products").addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && e.target.matches("input[data-f=price], input[data-f=cost], input[data-f=stock]")) { e.preventDefault(); e.target.blur(); }
+    if (e.key === "Enter" && e.target.matches("input[data-f=restock]")) { e.preventDefault(); $("[data-restock]", e.target.closest(".prow")).click(); }
   });
 
   // ---------- product editor ----------

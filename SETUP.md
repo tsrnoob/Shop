@@ -88,7 +88,7 @@ Then send the link to people after they add you on WeChat.
 | New drink or water for the menus | Products → **+ Add product** (category **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
 | Track 魔芋爽 single packs (optional) | Products: add packs to **卫龙 魔芋爽 … (单包)** via **Restock**. Not needed for menus to sell: gifts never make a menu sold out |
 | Bought more stock | Products → **Restock** → number → **Add** |
-| Change a price | Products → **Price** → **Save** |
+| Change a price | Products → type the new **Price** and press Enter (or just tap elsewhere). It saves by itself, so you can go down the list one after another |
 | Sold something in person | Inventory → **Record a sale made outside the site** |
 | Profit, stock value, spending | Inventory (menus are listed as their own rows) |
 
