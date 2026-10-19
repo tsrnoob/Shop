@@ -15,8 +15,8 @@
     ["5890", "良品铺子 小米锅巴 麻辣味", "Bestore Millet Crispy Rice, Spicy", "Bag · 90 g", 2.00, 1.06, 4, "guoba", true],
     ["5896", "喜之郎 CiCi 果汁果冻 芒果味", "Strong CiCi Drinkable Jelly, Mango", "Pouch", 2.50, 1.02, 9, "drink", true],
     ["wl252", "卫龙 魔芋爽 酸辣素毛肚", "Weilong Konjac Shuang, Sour & Hot", "Bag · 252 g (28 pieces)", null, 2.76, 1, "snack", true],
-    ["wl-pc-sour", "卫龙 魔芋爽 酸辣 (单包)", "Weilong Konjac Shuang, Sour & Hot (single pack)", "Single pack · for meal sets", null, 0.10, 20, "konjac", false],
-    ["wl-pc-spicy", "卫龙 魔芋爽 香辣 (单包)", "Weilong Konjac Shuang, Hot & Spicy (single pack)", "Single pack · for meal sets", null, 0.18, 12, "konjac", false],
+    ["wl-pc-sour", "卫龙 魔芋爽 酸辣 (单包)", "Weilong Konjac Shuang, Sour & Hot (single pack)", "Single pack · for meal sets", null, 0.10, 0, "konjac", false],
+    ["wl-pc-spicy", "卫龙 魔芋爽 香辣 (单包)", "Weilong Konjac Shuang, Hot & Spicy (single pack)", "Single pack · for meal sets", null, 0.18, 0, "konjac", false],
     ["wl-pc-mala", "卫龙 魔芋爽 麻辣 (单包)", "Weilong Konjac Shuang, Numbing & Spicy (single pack)", "Single pack · for meal sets", null, 0.19, 0, "konjac", false]
   ].map(([id, cn, en, meta, price, cost, stock, category, on_shelf], i) => ({ id, name_cn: cn, name_en: en, meta,
     image_url: "img/" + (id.startsWith("wl-pc") ? { "wl-pc-sour": "wl252", "wl-pc-spicy": "wl360", "wl-pc-mala": "wlmala" }[id] : id) + ".jpg",
@@ -38,7 +38,7 @@
     const slots = [...b.bundle_slots].sort((x, y) => x.sort - y.sort || x.id - y.id);
     const paid = slots.filter((s) => !s.is_gift), gifts = slots.filter((s) => s.is_gift);
     let giftC = 0;
-    for (const g of gifts) { const cs = g.options.map(prod).filter(Boolean).map((p) => cents(p.cost)); if (!cs.length) return []; giftC += Math.max(...cs) * g.qty; }
+    for (const g of gifts) { const cs = g.options.map(prod).filter(Boolean).map((p) => cents(p.cost)); if (cs.length) giftC += Math.max(...cs) * g.qty; }
     if (!paid.length) return [];
     let acc = [{ p: [], r: 0, c: 0 }];
     for (const s of paid) acc = acc.flatMap((a) => s.options.map(prod).filter((p) => p && p.price != null).map((p) => ({ p: [...a.p, p.id], r: a.r + cents(p.price), c: a.c + cents(p.cost) })));
@@ -62,9 +62,10 @@
         obs.push({ id: obid, bundle_id: b.id, name_cn: b.name_cn, name_en: b.name_en, qty: l.qty, unit_price: cb.price }); total += l.qty * cb.price;
         for (const s of b.bundle_slots) {
           const picks = l.picks[s.id] || {}; const sum = Object.values(picks).reduce((a, n) => a + n, 0);
-          if (sum !== s.qty) err("bad_picks:" + b.id);
-          for (const [pid, n] of Object.entries(picks)) { const p = prod(pid); if (p.stock < n * l.qty) err("out_of_stock:" + pid);
-            p.stock -= n * l.qty; items.push({ id: ibid++, product_id: pid, name_cn: p.name_cn, name_en: p.name_en, qty: n * l.qty, preorder: false, unit_price: 0, unit_cost: p.cost, order_bundle_id: obid, is_gift: s.is_gift }); }
+          const fixed = s.is_gift && !s.options.some((id) => prod(id)?.active);
+          if (sum !== (fixed ? 0 : s.qty)) err("bad_picks:" + b.id);
+          for (const [pid, n] of Object.entries(picks)) { const p = prod(pid); if (!s.is_gift && p.stock < n * l.qty) err("out_of_stock:" + pid);
+            const taken = s.is_gift ? Math.min(Math.max(p.stock, 0), n * l.qty) : n * l.qty; p.stock -= taken; items.push({ id: ibid++, product_id: pid, name_cn: p.name_cn, name_en: p.name_en, qty: n * l.qty, preorder: false, unit_price: 0, unit_cost: p.cost, order_bundle_id: obid, is_gift: s.is_gift }); }
         }
       } else {
         const p = prod(l.id); if (!l.preorder) { if (p.stock < l.qty) err("out_of_stock:" + l.id); p.stock -= l.qty; }
@@ -116,6 +117,7 @@
     setCustomerActive: async (id, a) => { C.find((x) => x.id === id).active = a; return wait(); },
     updateCustomer: async (id, patch) => { Object.assign(C.find((x) => x.id === id), patch); return wait(); },
     listBundles: () => wait(B),
+    setSlotOptions: async (sid, options) => { for (const b of B) for (const s of b.bundle_slots) if (s.id === sid) s.options = options; return wait(); },
     updateBundle: async (id, patch) => { Object.assign(B.find((b) => b.id === id), patch); return wait(); },
     addBundle: async (row) => { B.push({ ...row, description: "", bundle_slots: [] }); return wait(); },
     saveSlots: async (bid, slots, removed) => { const b = B.find((x) => x.id === bid);

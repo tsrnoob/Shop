@@ -122,3 +122,13 @@ body.private .pv { filter: blur(7px); user-select: none; }
 .combos td:nth-child(4) { white-space: normal; text-align: left; font-family: var(--f-cn); font-size: .85rem; }
 .combos th:nth-child(4) { text-align: left; }
 .preview .avail { font-size: .85rem; color: var(--muted); } .preview .avail.bad { color: var(--accent); font-weight: 600; }
+
+/* menus: tick-only choices */
+.mchoice { background: var(--sunk); border-radius: 8px; padding: 10px; display: flex; flex-direction: column; gap: 8px; }
+.mhead { display: flex; flex-wrap: wrap; align-items: baseline; gap: 6px 8px; }
+.mhead .cn { font-family: var(--f-cn); }
+.gifttag { font-size: .72rem; font-weight: 700; color: var(--accent); border: 1px solid currentColor; border-radius: 99px; padding: 1px 8px; }
+.tick .warn { color: var(--accent); font-weight: 600; }
+.preview .avail { font-size: .8rem; color: var(--muted); margin-top: 6px; }
+.preview .avail.bad { color: var(--accent); font-weight: 600; }
+.combos tr.muted td { color: var(--muted); }

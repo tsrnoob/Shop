@@ -95,13 +95,14 @@
     setCustomerActive: (id, active) => rpc("owner_set_customer_active", { p_customer_id: id, p_active: active }),
     updateCustomer: (id, patch) => q(sb.from("customers").update(patch).eq("id", id)),
 
+    setSlotOptions: (slotId, options) => q(sb.from("bundle_slots").update({ options }).eq("id", slotId)),
     listBundles: () => q(sb.from("bundles").select("*, bundle_slots(*)").order("sort").order("created_at")),
     updateBundle: (id, patch) => q(sb.from("bundles").update(patch).eq("id", id)),
     addBundle: (row) => q(sb.from("bundles").insert(row)),
     // Keeps existing slot ids (so customers' carts stay valid), adds new ones, removes deleted ones.
     async saveSlots(bundleId, slots, removedIds) {
       for (const s of slots) {
-        const row = { label_cn: s.label_cn, label_en: s.label_en, category: s.category, qty: s.qty, is_gift: s.is_gift, sort: s.sort };
+        const row = { label_cn: s.label_cn, label_en: s.label_en, category: s.category, qty: s.qty, is_gift: s.is_gift, sort: s.sort, options: s.options || [] };
         if (s.id) await q(sb.from("bundle_slots").update(row).eq("id", s.id));
         else await q(sb.from("bundle_slots").insert({ ...row, bundle_id: bundleId }));
       }

@@ -16,6 +16,11 @@
   const optsOf = (slot) => { const P = byId(); return (slot.options || []).map((id) => P[id]).filter(Boolean); };
   const paidSlots = (b) => b.slots.filter((s) => !s.is_gift);
   const giftSlots = (b) => b.slots.filter((s) => s.is_gift);
+  // a gift with nothing ticked (e.g. water before there's a water product) is just included, nothing to pick
+  const fixedGift = (s) => s.is_gift && !optsOf(s).length;
+  const need = (s) => (fixedGift(s) ? 0 : s.qty);
+  // only paid choices use up stock that decides availability; gifts are handed out from what's there
+  function paidPicksOf(l) { const b = shop.bundles.find((x) => x.id === l.bundle); return b ? paidSlots(b).map((s) => l.picks[s.id] || {}) : []; }
   // combination price for the chosen paid items (null if that combination isn't offered)
   function comboFor(b, picks) {
     const ids = paidSlots(b).map((s) => Object.keys(picks[s.id] || {}).find((pid) => picks[s.id][pid] > 0));
@@ -108,17 +113,16 @@
     for (const [k, l] of Object.entries(cart)) {
       if (k === exceptKey) continue;
       if (l.bundle) {
-        for (const picks of Object.values(l.picks)) for (const [pid, c] of Object.entries(picks)) n[pid] = (n[pid] || 0) + c * l.qty;
+        for (const picks of paidPicksOf(l)) for (const [pid, c] of Object.entries(picks)) n[pid] = (n[pid] || 0) + c * l.qty;
       } else if (!l.preorder) n[l.id] = (n[l.id] || 0) + l.qty;
     }
     return n;
   }
   const freeStock = (pid, exceptKey) => (byId()[pid]?.stock || 0) - (needs(exceptKey)[pid] || 0);
 
-  // Can this price group be filled right now?
-  const giftsOk = (b) => giftSlots(b).every((s) => optsOf(s).reduce((a, p) => a + Math.max(0, freeStock(p.id)), 0) >= s.qty);
+  // Can this price group be filled right now? Only the paid items' stock counts.
   const comboInStock = (b, c) => paidSlots(b).every((s, i) => freeStock(c.p[i]) >= s.qty);
-  const tierAvailable = (b, tier) => giftsOk(b) && tier.combos.some((c) => comboInStock(b, c));
+  const tierAvailable = (b, tier) => tier.combos.some((c) => comboInStock(b, c));
 
   // ---------- cart ----------
   const singleKey = (id, pre) => "p:" + id + (pre ? ":pre" : "");
@@ -131,10 +135,10 @@
     for (const [k, l] of Object.entries(cart)) {
       if (l.bundle) {
         const b = B[l.bundle];
-        const ok = b && b.slots.length === Object.keys(l.picks).length && b.slots.every((s) => {
-          const picks = l.picks[s.id]; if (!picks) return false;
+        const ok = b && b.slots.every((s) => {
+          const picks = l.picks[s.id] || {};
           const total = Object.values(picks).reduce((a, c) => a + c, 0);
-          return total === s.qty && Object.keys(picks).every((pid) => P[pid] && (s.options || []).includes(pid));
+          return total === need(s) && Object.keys(picks).every((pid) => P[pid] && (s.options || []).includes(pid));
         }) && comboFor(b, l.picks);
         if (!ok) { delete cart[k]; notes.push(`${b ? name(b) : "a meal set"} changed, please choose again`); continue; }
         if (l.qty > max) l.qty = max;
@@ -153,7 +157,7 @@
     // meal sets drawing on the same stock: trim the last ones that no longer fit
     for (const [k, l] of Object.entries(cart)) {
       if (!l.bundle) continue;
-      while (l.qty > 0 && Object.values(l.picks).some((picks) => Object.keys(picks).some((pid) => freeStock(pid, k) < picks[pid] * l.qty))) l.qty--;
+      while (l.qty > 0 && paidPicksOf(l).some((picks) => Object.keys(picks).some((pid) => freeStock(pid, k) < picks[pid] * l.qty))) l.qty--;
       if (l.qty === 0) { delete cart[k]; notes.push("a meal set sold out"); }
     }
     saveCart();
@@ -163,7 +167,7 @@
   function lineMaxSingle(p, pre, key) { const m = shop.settings.max_qty || 10; return pre ? m : Math.min(m, freeStock(p.id, key)); }
   function lineMaxSet(l, key) {
     let m = shop.settings.max_qty || 10;
-    for (const picks of Object.values(l.picks)) for (const [pid, c] of Object.entries(picks)) if (c > 0) m = Math.min(m, Math.floor(freeStock(pid, key) / c));
+    for (const picks of paidPicksOf(l)) for (const [pid, c] of Object.entries(picks)) if (c > 0) m = Math.min(m, Math.floor(freeStock(pid, key) / c));
     return m;
   }
   function bump(key, d) {
@@ -262,8 +266,8 @@
     });
     for (const s of giftSlots(b)) {
       if (Object.keys(picks[s.id]).length) continue;
-      const inStock = optsOf(s).filter((p) => freeStock(p.id) >= s.qty);
-      if (optsOf(s).filter((p) => freeStock(p.id) > 0).length === 1 && inStock.length === 1) picks[s.id] = { [inStock[0].id]: s.qty };
+      const opts = optsOf(s);
+      if (opts.length === 1) picks[s.id] = { [opts[0].id]: s.qty };
     }
   }
   function slotCount(sid) { return Object.values(picking.picks[sid]).reduce((a, c) => a + c, 0); }
@@ -277,13 +281,15 @@
       const possible = isPaid ? paidOptions(pi) : null;
       const have = slotCount(s.id);
       const single = isPaid || s.qty === 1;
+      if (fixedGift(s)) return `<div class="slot"><div class="slot-head"><b>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)}</b> <span class="muted">${esc(s.label_en)}</span>
+        <span class="gift">送 free</span><span class="count done">已包含 included</span></div></div>`;
       const head = `<div class="slot-head"><b>${esc(s.label_cn)}</b> <span class="muted">${esc(s.label_en)}</span>
         ${s.is_gift ? '<span class="gift">送 free</span>' : ""}<span class="count ${have === s.qty ? "done" : ""}">${have}/${s.qty}</span></div>`;
       if (!opts.length) return `<div class="slot">${head}<div class="hint">暂时没有 · Nothing available right now</div></div>`;
       return `<div class="slot">${head}<div class="opts">${opts.map((p) => {
         const n = picking.picks[s.id][p.id] || 0;
-        const free = freeStock(p.id) - otherSlotUse(s.id, p.id);
-        const out = !n && (isPaid ? !possible.has(p.id) : free <= 0);
+        const free = isPaid ? freeStock(p.id) - otherSlotUse(s.id, p.id) : Infinity; // gifts are never sold out
+        const out = !n && isPaid && !possible.has(p.id);
         const why = !out ? esc(p.meta || p.name_en) : (free <= 0 ? "售罄 sold out" : "不能和已选的搭配 · not with your other pick");
         const ctrl = single
           ? `<span class="radio ${n ? "on" : ""}" aria-hidden="true"></span>`
@@ -295,7 +301,7 @@
         </${single ? "button" : "div"}>`;
       }).join("")}</div></div>`;
     }).join("");
-    const complete = b.slots.every((s) => slotCount(s.id) === s.qty) && comboFor(b, picking.picks);
+    const complete = b.slots.every((s) => slotCount(s.id) === need(s)) && comboFor(b, picking.picks);
     const btn = $("#set-add");
     btn.disabled = !complete;
     btn.textContent = complete ? `加入购物车 Add to cart · ${money(tier.price)}` : "请选择 Choose everything above";
@@ -394,7 +400,7 @@
     $("#cart-lines").innerHTML = entries.map(([k, l]) => {
       if (l.bundle) {
         const b = shop.bundles.find((x) => x.id === l.bundle); if (!b) return "";
-        const parts = b.slots.flatMap((s) => Object.entries(l.picks[s.id] || {}).map(([pid, c]) =>
+        const parts = b.slots.flatMap((s) => fixedGift(s) ? [`<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn || s.label_en)} <span class="gift">送</span></li>`] : Object.entries(l.picks[s.id] || {}).map(([pid, c]) =>
           `<li>${c > 1 ? c + " × " : ""}${esc(P[pid] ? name(P[pid]) : pid)}${s.is_gift ? ' <span class="gift">送</span>' : ""}</li>`));
         const firstImg = P[Object.keys(l.picks[b.slots[0].id] || {})[0]];
         return `<div class="line">
