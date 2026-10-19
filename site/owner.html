@@ -145,6 +145,11 @@
       </div>
       <p class="hint">Menus cost the single prices minus the discount target when possible, aiming for the target profit, then rounded down to the nearest 50 cents (so profit can end up to 49 cents below the target).</p>
       <label class="field"><span>Banner message on the shop (optional)</span><input id="st-notice" maxlength="200" placeholder="e.g. Back on Monday · 周一回来"></label>
+      <div class="grid3">
+        <label class="field"><span>Ads: AdSense publisher ID</span><input id="st-adclient" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="ca-pub-1234567890123456"></label>
+        <label class="field"><span>Ads: display ad unit ID</span><input id="st-adslot" maxlength="20" inputmode="numeric" placeholder="e.g. 1234567890"></label>
+      </div>
+      <p class="hint">Leave both empty for no ads. With both filled, small labelled ads appear under the login box, under the product list and, on very wide screens, in the side margins. Never inside the cart or meal-set picker.</p>
       <label class="field"><span>Phone notifications: ntfy topic</span><input id="st-ntfy" maxlength="64" autocapitalize="none" spellcheck="false" placeholder="e.g. garching-snacks-k39x7q"></label>
       <p class="hint">Install the free <b>ntfy</b> app, subscribe to this exact topic name, and you'll get a push for every new order. Pick something long and random; anyone who knows it can read the notifications.</p>
       <p class="hint">Owner account: <b id="st-owner"></b> (change it in the Supabase SQL editor).</p>

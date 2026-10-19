@@ -56,6 +56,7 @@
     $("#open-orders").hidden = !inn;
     $("#who-id").textContent = inn ? session.username : "";
     renderCartBar();
+    fillAds();
   }
   function endSession(msg) {
     session = null; store.set("shop.session", null);
@@ -103,6 +104,7 @@
     $("#area-name").textContent = (s.locations || [])[0] || "Garching";
     $("#notice").hidden = !s.notice; $("#notice").textContent = s.notice || "";
     $("#closedbar").hidden = s.shop_open !== false;
+    setupAds(s);
     reconcileCart(true);
     renderAll();
   }
@@ -603,6 +605,39 @@
   });
 
   // ---------- start ----------
+  // ---------- ads (Google AdSense) ----------
+  // Nothing happens until a publisher ID and ad unit ID are set on the owner page (Settings).
+  // Slots are only filled once they're on screen, so hidden views never request ads.
+  let adCfg = null;
+  function setupAds(s) {
+    const client = String(s.ad_client || "").trim(), slot = String(s.ad_slot || "").trim();
+    if (adCfg || !/^ca-pub-\d{10,20}$/.test(client) || !/^\d{6,20}$/.test(slot)) return;
+    adCfg = { client, slot };
+    const sc = document.createElement("script");
+    sc.async = true; sc.crossOrigin = "anonymous";
+    sc.src = "https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=" + encodeURIComponent(client);
+    document.head.appendChild(sc);
+    fillAds();
+  }
+  function fillAds() {
+    if (!adCfg) return;
+    const wide = matchMedia("(min-width: 1460px)").matches;
+    document.querySelectorAll("[data-ad]").forEach((box) => {
+      if (box.dataset.filled) return;
+      const rail = box.dataset.ad === "rail";
+      if (rail && !wide) return;
+      if (box.closest("main")?.hidden) return; // fill when its page is showing
+      const room = box.parentElement.clientWidth; // banner size that fits the space it sits in
+      const [w, h] = rail ? [160, 600] : room >= 760 ? [728, 90] : [320, 100];
+      const ins = document.createElement("ins");
+      ins.className = "adsbygoogle";
+      ins.style.cssText = `display:inline-block;width:${w}px;height:${h}px`;
+      ins.dataset.adClient = adCfg.client; ins.dataset.adSlot = adCfg.slot;
+      box.appendChild(ins); box.hidden = false; box.dataset.filled = "1";
+      try { (window.adsbygoogle = window.adsbygoogle || []).push({}); } catch (e) {}
+    });
+  }
+
   async function boot() {
     showView();
     await loadShop();

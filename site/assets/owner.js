@@ -421,24 +421,28 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
     $("#mh-disc").textContent = money(settings.bundle_discount ?? 1); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
     renderBundles();
     renderShopState();
-    $("#st-notice").value = settings.notice || ""; $("#st-ntfy").value = settings.ntfy_topic || ""; $("#st-owner").textContent = settings.owner_email;
+    $("#st-notice").value = settings.notice || ""; $("#st-ntfy").value = settings.ntfy_topic || ""; $("#st-adclient").value = settings.ad_client || ""; $("#st-adslot").value = settings.ad_slot || ""; $("#st-owner").textContent = settings.owner_email;
   }
   $("#settings-form").addEventListener("submit", async (e) => {
     e.preventDefault();
     const err = $("#st-err");
     const locations = [...new Set($("#st-locations").value.split("\n").map((s) => s.trim()).filter(Boolean))];
     const ntfy = $("#st-ntfy").value.trim();
+    const adClient = $("#st-adclient").value.trim(), adSlot = $("#st-adslot").value.trim();
     const patch = {
       shop_name: $("#st-name").value.trim() || "Garching Snack Shop",
       wechat_contact: $("#st-wechat").value.trim(),
       locations, max_qty: parseInt($("#st-max").value, 10),
-      max_open_orders: parseInt($("#st-open").value, 10), notice: $("#st-notice").value.trim() || null, ntfy_topic: ntfy || null,
+      max_open_orders: parseInt($("#st-open").value, 10), notice: $("#st-notice").value.trim() || null, ntfy_topic: ntfy || null, ad_client: adClient || null, ad_slot: adSlot || null,
       bundle_discount: num($("#st-disc").value), bundle_min_profit: num($("#st-minp").value)
     };
     const bad = !locations.length ? "Add at least one meeting spot." :
       !(patch.max_qty >= 1 && patch.max_qty <= 99) ? "Max per product must be 1–99." :
       !(patch.max_open_orders >= 1 && patch.max_open_orders <= 50) ? "Max open orders must be 1–50." :
       ntfy && !/^[A-Za-z0-9_-]{6,64}$/.test(ntfy) ? "ntfy topic: 6–64 letters, numbers, - or _." :
+      adClient && !/^ca-pub-\d{10,20}$/.test(adClient) ? "AdSense publisher ID looks like ca-pub-1234567890123456." :
+      adSlot && !/^\d{6,20}$/.test(adSlot) ? "Ad unit ID is a number, e.g. 1234567890." :
+      !!adClient !== !!adSlot ? "Fill in both ad fields, or leave both empty." :
       !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Menu discount must be a number, e.g. 1.00" :
       !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu target profit must be a number, e.g. 1.50" : "";
     if (bad) { err.textContent = bad; err.hidden = false; return; }

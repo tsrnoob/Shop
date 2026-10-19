@@ -304,3 +304,17 @@ button.opt { cursor: pointer; }
 .prenote b { font-weight: 800; }
 .btn.prebtn { background: var(--pre); border-color: var(--pre); color: var(--pre-fg); font-weight: 700; }
 .btn.prebtn:hover { filter: brightness(1.08); }
+
+/* ---------- ad slots: small, labelled, only in spare space ---------- */
+.adslot { text-align: center; margin: 22px auto 0; max-width: 100%; overflow: hidden; }
+.adlabel { display: block; font-size: .64rem; font-weight: 600; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin-bottom: 4px; }
+.adslot ins { max-width: 100%; }
+.login .adslot { margin-top: 0; }
+.shelf:has(+ .adslot:not([hidden])) { padding-bottom: 8px; }
+.ad-bottom { margin-bottom: 120px; }
+.adrail { display: none; }
+@media (min-width: 1460px) {
+  .adrail:not([hidden]) { display: block; position: fixed; top: 170px; width: 160px; text-align: center; z-index: 1; }
+  .adrail.left { left: calc(50% - 540px - 190px); }
+  .adrail.right { right: calc(50% - 540px - 190px); }
+}
