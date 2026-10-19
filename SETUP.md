@@ -76,7 +76,7 @@ Then send the link to people after they add you on WeChat.
 | You want to… | Where |
 |---|---|
 | Give someone access | Customers → enter username + their WeChat ID → **Create account** → **Copy for WeChat** and send it to them |
-| Someone forgot their password | Customers → **New password** (the old one stops working, they are logged out) |
+| Someone forgot their username | Customers → **Copy login message** next to their name and send it again |
 | Block someone | Customers → **Switch off** (logs them out everywhere; **Switch on** to undo) |
 | See new orders | Orders (badge shows how many are new; refreshes every 20 s) |
 | Confirm you've seen it | **Confirm**. After that the customer can no longer cancel it themselves |
@@ -98,7 +98,7 @@ Then send the link to people after they add you on WeChat.
 - **Preorders** are only offered when an item is sold out, and need a pickup date at least 5 days away (changeable in Settings). They don't touch stock.
 - **Limits**: max 10 of each product per order, and max 5 open orders per WeChat ID (both changeable in Settings). This stops one person from reserving the whole shelf.
 - **Customers can cancel** their own order until you press Confirm.
-- **Accounts**: only people you create on the Customers tab can log in. 5 wrong passwords lock that account for 15 minutes.
+- **Accounts**: only people you create on the Customers tab can log in, with just their username (no password). Anyone who knows a username can order as that person, so pick usernames that aren't easy to guess (e.g. `mei-4821`, not `mei`), and you still confirm each order on WeChat. If an account is misused, **Switch off** logs it out everywhere.
 - **Menu prices**: for every combination of paid items, price = their single prices minus the discount target (€1.00), but never less than costs + minimum profit (€1.50), with free gifts counted at the most expensive ticked one. Rounded up to 10 cents. The minimum profit always wins; the discount is only given when there's room.
 - **Menu cards**: combinations with the same price share one card in the shop, and the customer can only pick items from that card. A card shows as sold out when nothing in it is in stock.
 - **Pickup**: with one area in Settings (Garching Forschungszentrum), customers only see it as a reminder; you agree the exact spot on WeChat.

@@ -84,7 +84,7 @@
   <section data-panel="customers" class="panel" hidden>
     <form class="card" id="cust-form" novalidate>
       <h2>Add a customer</h2>
-      <p class="hint">After someone adds you on WeChat, create their account here and send them the login details. A password is generated for you.</p>
+      <p class="hint">After someone adds you on WeChat, create their account here and send them the username. They log in with just the username.</p>
       <div class="grid3">
         <label class="field"><span>Username</span><input id="cu-user" maxlength="30" autocapitalize="none" spellcheck="false" placeholder="e.g. lin2002"></label>
         <label class="field"><span>WeChat ID</span><input id="cu-wechat" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="their WeChat ID"></label>
@@ -97,7 +97,7 @@
       <h3 id="cred-title">Login details</h3>
       <pre id="cred-text"></pre>
       <div class="acts"><button class="btn primary" type="button" id="cred-copy">Copy for WeChat</button><button class="btn ghost" type="button" id="cred-close">Done</button></div>
-      <p class="hint">The password is only shown now. If it gets lost, use <b>New password</b>.</p>
+
     </div>
     <div class="toolbar"><h2>Customers</h2><input class="search" id="cust-search" type="search" placeholder="Search username or WeChat ID"></div>
     <div id="customers" class="clist"></div>

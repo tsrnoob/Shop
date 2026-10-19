@@ -58,21 +58,20 @@
     if (msg) { const e = $("#login-err"); e.textContent = msg; e.hidden = false; }
   }
   const LOGIN_ERR = {
-    bad_login: "用户名或密码不对 · Wrong username or password.",
+    bad_login: "找不到这个用户名 · Username not found. Check it, or message me on WeChat.",
     locked: "尝试次数过多，请15分钟后再试 · Too many tries. Wait 15 minutes, or message me on WeChat.",
     account_disabled: "账号已停用 · This account is switched off. Message me on WeChat."
   };
   $("#login-form").addEventListener("submit", async (e) => {
     e.preventDefault();
-    const u = $("#login-user").value.trim(), p = $("#login-pass").value;
+    const u = $("#login-user").value.trim();
     const err = $("#login-err"), btn = $("#login-btn");
-    if (!u || !p) { err.textContent = "请输入用户名和密码 · Enter your username and password."; err.hidden = false; return; }
+    if (!u) { err.textContent = "请输入用户名 · Enter your username."; err.hidden = false; return; }
     err.hidden = true; btn.disabled = true;
     try {
-      const r = await API.login(u, p);
+      const r = await API.login(u);
       session = { token: r.token, username: r.username, wechat_id: r.wechat_id };
       store.set("shop.session", session);
-      $("#login-pass").value = "";
       showView(); renderAll();
     } catch (ex) {
       err.textContent = LOGIN_ERR[ex.code] || "登录失败 · Couldn't log in. Check your connection and try again.";

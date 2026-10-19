@@ -383,12 +383,12 @@
     try { customers = await API.listCustomers(); renderCustomers(); }
     catch (e) { $("#customers").innerHTML = `<div class="empty">Couldn't load customers: ${esc(e.message)}</div>`; }
   }
-  function credText(username, password) {
-    return `${settings?.shop_name || "Garching Snack Shop"} 账号 / account\n网址 Website: ${location.origin}\n用户名 Username: ${username}\n密码 Password: ${password}`;
+  function credText(username) {
+    return `${settings?.shop_name || "Garching Snack Shop"} 账号 / account\n网址 Website: ${location.origin}\n用户名 Username: ${username}`;
   }
-  function showCred(title, username, password) {
+  function showCred(title, username) {
     $("#cred-title").textContent = title;
-    $("#cred-text").textContent = credText(username, password);
+    $("#cred-text").textContent = credText(username);
     $("#cred").hidden = false; $("#cred").scrollIntoView({ block: "nearest" });
   }
   $("#cred-copy").onclick = () => copy($("#cred-text").textContent);
@@ -400,15 +400,14 @@
     if (!list.length) { $("#customers").innerHTML = `<div class="empty">${customers.length ? "No match." : "No customers yet. Create the first account above."}</div>`; return; }
     $("#customers").innerHTML = list.map((c) => {
       const n = orders.filter((o) => o.customer_id === c.id && o.status !== "cancelled").length;
-      const locked = c.locked_until && new Date(c.locked_until) > new Date();
       return `<div class="crow ${c.active ? "" : "off"}" data-cid="${c.id}">
         <div><div class="u">${esc(c.username)}</div>
           <div class="meta"><span>WeChat <b>${esc(c.wechat_id)}</b></span><span>${n} order${n === 1 ? "" : "s"}</span>
             <span>${c.last_login_at ? "last login " + new Date(c.last_login_at).toLocaleDateString("en-GB", { day: "numeric", month: "short" }) : "never logged in"}</span>
-            ${c.active ? "" : '<span class="flag">Switched off</span>'}${locked ? '<span class="flag warn">Locked 15 min (wrong passwords)</span>' : ""}
+            ${c.active ? "" : '<span class="flag">Switched off</span>'}
             ${c.note ? `<span>“${esc(c.note)}”</span>` : ""}</div></div>
         <div class="acts">
-          <button class="btn small" data-cact="pw">New password</button>
+          <button class="btn small" data-cact="msg">Copy login message</button>
           <button class="btn small ${c.active ? "ghost" : "primary"}" data-cact="toggle">${c.active ? "Switch off" : "Switch on"}</button>
           <button class="btn small ghost" data-cact="edit">Edit</button>
         </div>
@@ -430,7 +429,7 @@
     err.hidden = true; btn.disabled = true;
     try {
       const r = await API.createCustomer(u, w, $("#cu-note").value.trim());
-      showCred(`Account created for ${r.username}`, r.username, r.password);
+      showCred(`Account created for ${r.username}`, r.username);
       $("#cu-user").value = ""; $("#cu-wechat").value = ""; $("#cu-note").value = "";
       await loadCustomers();
     } catch (ex) {
@@ -443,10 +442,9 @@
     const row = b.closest(".crow"), id = Number(row.dataset.cid), c = customers.find((x) => x.id === id);
     const act = b.dataset.cact;
     if (act === "edit") { $(".editline", row).hidden = !$(".editline", row).hidden; return; }
-    if (act === "pw" && b.dataset.confirm !== "1") { b.dataset.confirm = "1"; b.textContent = "Tap again: old password stops working"; return; }
+    if (act === "msg") return copy(credText(c.username));
     b.disabled = true;
     try {
-      if (act === "pw") { const r = await API.resetPassword(id); showCred(`New password for ${r.username}`, r.username, r.password); }
       if (act === "toggle") { await API.setCustomerActive(id, !c.active); toast(c.active ? `${c.username} switched off and logged out` : `${c.username} switched on`); }
       if (act === "save") {
         const w = $("[data-ce=wechat_id]", row).value.trim();

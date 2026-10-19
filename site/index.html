@@ -26,18 +26,16 @@
 <main id="login-view" class="login" hidden>
   <form class="card" id="login-form" novalidate>
     <h2><span class="cn">登录</span> · Log in</h2>
+    <p class="hint"><span class="cn">输入我发给你的用户名。</span> Enter the username I sent you.</p>
     <label class="field"><span>用户名 Username</span>
       <input id="login-user" autocomplete="username" autocapitalize="none" spellcheck="false" maxlength="30" required>
-    </label>
-    <label class="field"><span>密码 Password</span>
-      <input id="login-pass" type="password" autocomplete="current-password" maxlength="64" required>
     </label>
     <div class="err" id="login-err" hidden></div>
     <button class="btn primary block" type="submit" id="login-btn">登录 Log in</button>
   </form>
   <section class="card">
     <h3><span class="cn">还没有账号？</span><br>No account yet?</h3>
-    <p class="hint"><span class="cn">先加我微信，我会帮你开通账号并把登录信息发给你。</span><br>Add me on WeChat first. I'll set up an account for you and send you the login details.</p>
+    <p class="hint"><span class="cn">先加我微信，我会帮你开通账号并把用户名发给你。</span><br>Add me on WeChat first. I'll set up an account for you and send you your username.</p>
     <div class="wechat-box">
       <span class="id wechat-contact">guest19191231</span>
       <button class="btn small copy-wechat" type="button">复制 Copy</button>

@@ -86,8 +86,8 @@
     getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
       products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => p),
       bundles: B.filter((b) => b.active && combos(b).length).map((b) => ({ ...b, slots: [...b.bundle_slots].sort((x, y) => x.sort - y.sort), combos: combos(b) })) }),
-    async login(u, pw) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
-      if (!c || c.pw !== pw) err("bad_login"); if (!c.active) err("account_disabled");
+    async login(u) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
+      if (!c) err("bad_login"); if (!c.active) err("account_disabled");
       const t = crypto.randomUUID(); sessions[t] = c.id; saveSess(); c.last_login_at = new Date().toISOString(); return { token: t, username: c.username, wechat_id: c.wechat_id }; },
     me: async (t) => { await wait(); const c = sessCust(t); return { username: c.username, wechat_id: c.wechat_id }; },
     logout: async (t) => { delete sessions[t]; saveSess(); },

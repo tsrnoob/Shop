@@ -44,8 +44,8 @@
 
     // ---- customers (log in with an account the owner created) ----
     getShop: () => rpc("get_shop"),
-    async login(username, password) {
-      const r = await rpc("shop_login", { p_username: username, p_password: password });
+    async login(username) {
+      const r = await rpc("shop_login_username", { p_username: username });
       if (r && r.error) fail({ message: r.error });
       return r;
     },
