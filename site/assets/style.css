@@ -261,3 +261,13 @@ button.opt { cursor: pointer; }
 .set .member.out { opacity: .55; }
 .set .or { font-size: .72rem; font-weight: 700; letter-spacing: .06em; color: var(--muted); text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
 .set .or::before, .set .or::after { content: ""; flex: 1; border-top: 1px dashed var(--line); }
+
+/* single meal-set card */
+.setall .slots li { font-family: var(--f-cn); }
+.opt .t .save { display: block; margin-top: 2px; }
+@media (min-width: 700px) {
+  .sets:has(.setall) { grid-template-columns: minmax(0, 1fr); }
+  .setall { flex-direction: row; }
+  .setall .set-imgs { flex: 0 0 46%; border-bottom: 0; border-right: 1px solid var(--line); align-items: center; }
+  .setall .info { padding: 18px 20px; }
+}

@@ -198,78 +198,63 @@
   }
 
   // ---------- meal sets ----------
-  // One card per price across all menus: menus that cost the same are stacked on one card,
-  // and the customer picks which one (and its items) after opening it.
-  function priceGroups() {
-    const m = new Map();
-    for (const b of shop.bundles) for (const tier of tiersOf(b)) {
-      const k = tier.price.toFixed(2);
-      if (!m.has(k)) m.set(k, []);
-      m.get(k).push({ b, tier });
-    }
-    return [...m.entries()].sort((x, y) => Number(x[0]) - Number(y[0])).map(([k, members]) => ({ price: Number(k), members }));
+  // The shop shows a single meal-set card; everything is chosen in the picker:
+  // first which set, then its items, with the saving shown on every option.
+  const allTier = (b) => ({ combos: b.combos || [] });
+  const saving = (c) => Number(c.retail) - Number(c.price);
+  const saveRange = (cs) => { const s = cs.map(saving); return { lo: Math.min(...s), hi: Math.max(...s) }; };
+  const fmtSave = ({ lo, hi }) => (hi <= 0.005 ? "" : Math.abs(hi - lo) < 0.005 ? `省 save ${money(hi)}` : `省 save ${money(lo)}–${money(hi)}`);
+  function memberImgs(b) {
+    const P = byId(), cs = b.combos || [];
+    const first = cs.find((c) => comboInStock(b, c)) || cs[0];
+    return [...(first ? first.p.map((id) => P[id]) : []), ...giftSlots(b).map((s) => optsOf(s).find((p) => p.stock > 0) || optsOf(s)[0])].filter(Boolean);
   }
-  // items shown for one menu at one price: paid choices limited to that price, gifts as they are
-  function memberLines(b, tier) {
-    const P = byId();
-    let si = 0;
-    const perSlot = paidSlots(b).map((s, i) => [...new Set(tier.combos.map((c) => c.p[i]))].map((id) => P[id]).filter(Boolean));
-    return b.slots.map((s) => {
-      if (s.is_gift) return `<li>${s.qty > 1 ? s.qty + " × " : ""}${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> <span class="gift">送 free</span></li>`;
-      const items = perSlot[si++];
-      return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span>: <span class="choices">${items.map((p) => esc(p.name_cn || p.name_en)).join(" / ")}</span></li>`;
-    }).join("");
-  }
-  function memberImgs(b, tier) {
-    const P = byId();
-    const first = tier.combos.find((c) => comboInStock(b, c)) || tier.combos[0];
-    return [...first.p.map((id) => P[id]), ...giftSlots(b).map((s) => optsOf(s).find((p) => p.stock > 0) || optsOf(s)[0])].filter(Boolean);
-  }
+  const setOk = (b) => tierAvailable(b, allTier(b));
   function renderSets() {
-    const cards = priceGroups().map((g) => {
-      const avail = g.members.map((m) => tierAvailable(m.b, m.tier));
-      const ok = avail.some(Boolean);
-      const saves = g.members.flatMap((m) => m.tier.combos.map((c) => Number(c.retail) - Number(c.price)));
-      const maxSave = Math.max(...saves), minSave = Math.min(...saves);
-      const saveTxt = maxSave > 0.005 ? (Math.abs(maxSave - minSave) < 0.005 ? `省 ${money(maxSave)} · save ${money(maxSave)}` : `最多省 ${money(maxSave)} · save up to ${money(maxSave)}`) : "";
-      // pictures: take turns between the stacked menus (available ones first), no repeats, at most 3
-      const lists = g.members.map((m, i) => ({ imgs: memberImgs(m.b, m.tier), ok: avail[i] })).sort((x, y) => y.ok - x.ok).map((x) => x.imgs);
-      const imgs = [];
-      for (let k = 0; imgs.length < 3 && lists.some((l) => l[k]); k++) for (const l of lists) if (l[k] && !imgs.includes(l[k]) && imgs.length < 3) imgs.push(l[k]);
-      const body = g.members.length === 1
-        ? `<div class="n-cn">${esc(g.members[0].b.name_cn)}</div><div class="n-en">${esc(g.members[0].b.name_en)}</div><ul class="slots">${memberLines(g.members[0].b, g.members[0].tier)}</ul>`
-        : `<div class="n-cn">套餐 · ${g.members.length} 选 1 <span class="n-en">Meal set, pick 1 of ${g.members.length}</span></div>`
-          + g.members.map((m, i) => `<div class="member ${avail[i] ? "" : "out"}">
-              <div class="sn">${esc(m.b.name_cn)}${avail[i] ? "" : ' <span class="muted">· 售罄 sold out</span>'}</div>
-              <ul class="slots">${memberLines(m.b, m.tier)}</ul></div>`).join('<div class="or">或 or</div>');
-      return `<article class="set ${ok ? "" : "soldout"}">
-          <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
-          <div class="info">
-            ${body}
-            <div class="row"><span class="price-wrap"><span class="tag">${money(g.price)}</span>${saveTxt ? `<span class="save">${saveTxt}</span>` : ""}</span>
-              ${ok ? `<button class="btn small primary" type="button" data-setprice="${g.price.toFixed(2)}">选择 Choose</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
-          </div>
-        </article>`;
-    });
-    $("#sets-section").hidden = !cards.length;
-    $("#sets").innerHTML = cards.join("");
+    const bs = shop.bundles.filter((b) => (b.combos || []).length);
+    $("#sets-section").hidden = !bs.length;
+    if (!bs.length) { $("#sets").innerHTML = ""; return; }
+    const ok = bs.some(setOk);
+    const live = bs.filter(setOk), pool = live.length ? live : bs;
+    const all = pool.flatMap((b) => b.combos.filter((c) => !live.length || comboInStock(b, c)));
+    const from = Math.min(...all.map((c) => Number(c.price))), best = Math.max(...all.map(saving));
+    // pictures: one from each set in turn, no repeats, at most 3
+    const lists = pool.map(memberImgs), imgs = [];
+    for (let k = 0; imgs.length < 3 && lists.some((l) => l[k]); k++) for (const l of lists) if (l[k] && !imgs.includes(l[k]) && imgs.length < 3) imgs.push(l[k]);
+    $("#sets").innerHTML = `<article class="set setall ${ok ? "" : "soldout"}">
+        <div class="set-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("")}</div>
+        <div class="info">
+          <div class="n-cn">套餐 <span class="n-en">Meal sets</span></div>
+          <ul class="slots">${bs.map((b) => `<li class="${setOk(b) ? "" : "muted"}">${esc(b.name_cn)}${setOk(b) ? "" : " · 售罄 sold out"}</li>`).join("")}</ul>
+          <div class="row"><span class="price-wrap"><span class="tag">${money(from)} 起</span>${best > 0.005 ? `<span class="save">最多省 ${money(best)} · save up to ${money(best)}</span>` : ""}</span>
+            ${ok ? `<button class="btn primary" type="button" data-setall>选择套餐 Choose</button>` : `<button class="btn" disabled>售罄 Sold out</button>`}</div>
+        </div>
+      </article>`;
   }
 
-  // configurator for one price: pick a menu (when several share the price), then its items
-  let picking = null; // {group, mi, b, tier, picks: {slotId: {pid: n}}}
-  function openSet(group) {
-    const mi = Math.max(0, group.members.findIndex((m) => tierAvailable(m.b, m.tier)));
-    picking = { group };
-    setMember(mi);
-    $("#set-title").textContent = group.members.length > 1 ? `套餐 Meal set · ${money(group.price)}` : `${name(group.members[0].b)} · ${money(group.price)}`;
+  // configurator: pick a set (when there are several), then its items
+  let picking = null; // {members, mi, b, tier, picks: {slotId: {pid: n}}}
+  function openSet() {
+    const members = shop.bundles.filter((b) => (b.combos || []).length);
+    if (!members.length) return;
+    picking = { members };
+    setMember(Math.max(0, members.findIndex(setOk)));
+    $("#set-title").textContent = members.length > 1 ? "套餐 Meal set" : name(members[0]);
     openSheet("#set-sheet");
   }
   function setMember(mi) {
-    const { b, tier } = picking.group.members[mi];
-    Object.assign(picking, { mi, b, tier, picks: {} });
+    const b = picking.members[mi];
+    Object.assign(picking, { mi, b, tier: allTier(b), picks: {} });
     for (const s of b.slots) picking.picks[s.id] = {};
     autoPick();
     renderPicker();
+  }
+  // combinations still possible if this product is taken in paid choice i, given the other picks
+  function combosWith(i, pid) {
+    const { b, tier, picks } = picking;
+    const ps = paidSlots(b);
+    const chosen = ps.map((s) => Object.keys(picks[s.id]).find((x) => picks[s.id][x] > 0));
+    return tier.combos.filter((c) => c.p[i] === pid && comboInStock(b, c) && ps.every((_, j) => j === i || !chosen[j] || chosen[j] === c.p[j]));
   }
   // paid options still possible in this price group, given what's already picked in the other paid choices
   function paidOptions(i) {
@@ -300,15 +285,18 @@
   }
   function slotCount(sid) { return Object.values(picking.picks[sid]).reduce((a, c) => a + c, 0); }
   function renderPicker() {
-    const { b, tier, group, mi } = picking;
+    const { b, members, mi } = picking;
     const P = byId();
     let pi = -1;
-    // which menu, when several share this price
-    const chooser = group.members.length < 2 ? "" : `<div class="slot"><div class="slot-head"><b>选择套餐</b> <span class="muted">Choose a set</span></div><div class="opts">${group.members.map((m, i) => {
-      const ok = tierAvailable(m.b, m.tier), img = memberImgs(m.b, m.tier)[0];
+    // which set, when there are several
+    const chooser = members.length < 2 ? "" : `<div class="slot"><div class="slot-head"><b>选择套餐</b> <span class="muted">Choose a set</span></div><div class="opts">${members.map((m, i) => {
+      const ok = setOk(m), img = memberImgs(m)[0];
+      const cs = m.combos.filter((c) => comboInStock(m, c));
+      const info = ok ? `${money(Math.min(...cs.map((c) => Number(c.price))))} 起 from` : "";
+      const sv = ok ? fmtSave(saveRange(cs)) : "";
       return `<button type="button" class="opt ${i === mi ? "on" : ""} ${ok ? "" : "out"}" ${ok ? `data-member="${i}"` : "disabled"}>
         <img src="${esc(img?.image_url || "")}" alt="">
-        <span class="t"><span class="n-cn">${esc(m.b.name_cn)}</span><span class="sub">${ok ? esc(m.b.name_en) : "售罄 sold out"}</span></span>
+        <span class="t"><span class="n-cn">${esc(m.name_cn)}</span><span class="sub">${ok ? info : "售罄 sold out"}</span>${sv ? `<span class="save">${sv}</span>` : ""}</span>
         <span class="radio ${i === mi ? "on" : ""}" aria-hidden="true"></span></button>`;
     }).join("")}</div></div>`;
     $("#set-slots").innerHTML = chooser + b.slots.map((s) => {
@@ -327,20 +315,29 @@
         const free = isPaid ? freeStock(p.id) - otherSlotUse(s.id, p.id) : Infinity; // gifts are never sold out
         const out = !n && isPaid && !possible.has(p.id);
         const why = !out ? esc(p.meta || p.name_en) : (free <= 0 ? "售罄 sold out" : "不能和已选的搭配 · not with your other pick");
+        // what taking this option saves (exact once the other choices are made, otherwise a range)
+        let sv = "";
+        if (isPaid && !out) {
+          const cs = combosWith(pi, p.id);
+          if (cs.length) {
+            const r = saveRange(cs), prices = [...new Set(cs.map((c) => Number(c.price).toFixed(2)))];
+            sv = fmtSave(r) + (prices.length === 1 && cs.length === 1 ? ` · 套餐 ${money(prices[0])}` : "");
+          }
+        }
         const ctrl = single
           ? `<span class="radio ${n ? "on" : ""}" aria-hidden="true"></span>`
           : `<span class="stepper"><button type="button" data-dec="${s.id}|${esc(p.id)}" ${n ? "" : "disabled"} aria-label="One less">−</button><span>${n}</span><button type="button" data-inc="${s.id}|${esc(p.id)}" ${have >= s.qty || free <= 0 ? "disabled" : ""} aria-label="One more">+</button></span>`;
         return `<${single ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${single && !out ? `data-pick="${s.id}|${esc(p.id)}|${s.qty}"` : ""} ${single && out ? "disabled" : ""}>
           <img src="${esc(p.image_url)}" alt="">
-          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span></span>
+          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${sv ? `<span class="save">${sv}</span>` : ""}</span>
           ${ctrl}
         </${single ? "button" : "div"}>`;
       }).join("")}</div></div>`;
     }).join("");
-    const complete = b.slots.every((s) => slotCount(s.id) === need(s)) && comboFor(b, picking.picks);
+    const combo = b.slots.every((s) => slotCount(s.id) === need(s)) && comboFor(b, picking.picks);
     const btn = $("#set-add");
-    btn.disabled = !complete;
-    btn.textContent = complete ? `加入购物车 Add to cart · ${money(tier.price)}` : "请选择 Choose everything above";
+    btn.disabled = !combo;
+    btn.textContent = combo ? `加入购物车 Add to cart · ${money(combo.price)}${saving(combo) > 0.005 ? ` (省 ${money(saving(combo))})` : ""}` : "请选择 Choose everything above";
     $("#set-err").hidden = true;
   }
   // same product picked in another choice of this set
@@ -413,11 +410,7 @@
     if (a) { const p = byId()[a.dataset.add]; if (p) addSingle(p, a.dataset.pre === "1"); return; }
     const b = e.target.closest("[data-bump]");
     if (b) { bump(b.dataset.bump, Number(b.dataset.d)); return; }
-    const s = e.target.closest("[data-setprice]");
-    if (s) {
-      const g = priceGroups().find((x) => x.price.toFixed(2) === s.dataset.setprice);
-      if (g) openSet(g);
-    }
+    if (e.target.closest("[data-setall]")) openSet();
   });
 
   // ---------- sheets ----------
