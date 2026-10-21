@@ -89,7 +89,7 @@ Then send the link to people after they add you on WeChat.
 | Track 魔芋爽 single packs (optional) | Products: add packs to **卫龙 魔芋爽 … (单包)** via **Restock**. Not needed for menus to sell: gifts never make a menu sold out |
 | In a lecture / busy for a while | Top of the owner page → type a message (e.g. "上课中，14:00 回来 · In a lecture until 14:00") → **Pause selling**. Stock is kept; customers get a pop-up and a pinned banner with your message and can only preorder. **Resume selling** when you're back |
 | Leaving campus for the day | Type a message (optional) → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed" with your message, only preorders can be placed. Open orders stay as they are |
-| Change the message while paused/closed | Edit the text in the bar → **Update message** |
+| Tell customers something any time (e.g. "14:00 补货 · Restocking at 14:00") | Type it in the bar at the top → **Show message** (or Enter). Customers get a pop-up and a blue banner while the shop stays open. **Remove** takes it down; **Update message** changes it. Resuming/opening after a pause clears it |
 | Starting a new day | Set today's stock on **Products** (customers still see closed meanwhile), then **Open shop** at the top. The message disappears |
 | Bought more stock | Products → **Restock** → number → **Add** |
 | Change a price | Products → type the new **Price** and press Enter (or just tap elsewhere). It saves by itself, so you can go down the list one after another |

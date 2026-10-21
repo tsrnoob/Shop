@@ -640,22 +640,23 @@
     const mode = s.shop_open !== false ? "open" : s.shop_paused ? "paused" : "closed";
     const msg = String(s.status_message || "").trim();
     const bar = $("#statusbar");
-    bar.hidden = mode === "open";
-    if (mode === "open") return;
+    bar.hidden = mode === "open" && !msg;
+    if (bar.hidden) return;
     setHeaderOffset();
     const T = {
+      open: { ico: "📢", title: "店主通知 · Note from the shop", sub: "" },
       paused: { ico: "⏸", title: "暂停接单 · Paused for now", sub: "稍后恢复，可以先预订 · Back soon. You can still preorder." },
       closed: { ico: "🌙", title: "已打烊 · Closed right now", sub: "今天不能直接下单，可以预订 · You can't order for today, but you can preorder." }
     }[mode];
     bar.className = "statusbar " + mode;
-    $("#sb-ico").textContent = T.ico; $("#sb-title").textContent = T.title; $("#sb-sub").textContent = T.sub;
+    $("#sb-ico").textContent = T.ico; $("#sb-title").textContent = T.title; $("#sb-sub").textContent = T.sub; $("#sb-sub").hidden = !T.sub;
     $("#sb-msg").hidden = !msg; $("#sb-msg").textContent = msg;
     // pop-up once per state + message in this browser tab
     const key = mode + "|" + msg;
     let seen = ""; try { seen = sessionStorage.getItem("shop.popSeen") || ""; } catch (e) {}
     if (seen === key) return;
     try { sessionStorage.setItem("shop.popSeen", key); } catch (e) {}
-    $("#pop-ico").textContent = T.ico; $("#pop-title").textContent = T.title; $("#pop-sub").textContent = T.sub;
+    $("#pop-ico").textContent = T.ico; $("#pop-title").textContent = T.title; $("#pop-sub").textContent = T.sub; $("#pop-sub").hidden = !T.sub;
     $("#pop-msg").hidden = !msg; $("#pop-msg").textContent = msg;
     $("#status-pop").className = "overlay popup " + mode;
     $("#status-pop").hidden = false;

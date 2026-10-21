@@ -395,12 +395,14 @@
       paused: `<button class="btn small primary" type="button" data-mode="open">Resume selling</button><button class="btn small" type="button" data-mode="closed">Close for today</button>`,
       closed: `<button class="btn small primary" type="button" data-mode="open">Open shop</button>`
     }[mode];
-    const msg = $("#ss-msg");
-    if (document.activeElement !== msg) msg.value = mode === "open" ? (msg.dataset.draft || "") : (settings.status_message || "");
-    msg.placeholder = mode === "open" ? "Message for customers when you pause or close (optional), e.g. 上课中，14:00 回来 · In a lecture until 14:00" : "Message for customers (optional)";
-    $("#ss-msg-save").hidden = mode === "open";
+    // the message can be shown any time (open, paused or closed): banner + pop-up for customers
+    const msg = $("#ss-msg"), cur = settings.status_message || "";
+    if (document.activeElement !== msg) msg.value = cur;
+    msg.placeholder = "Message for customers, any time — e.g. 14:00 补货 · Restocking at 14:00";
+    $("#ss-msg-save").textContent = cur ? "Update message" : "Show message";
+    $("#ss-msg-clear").hidden = !cur;
+    $("#shopstate-live").hidden = !cur;
   }
-  $("#ss-msg").addEventListener("input", (e) => { if (shopMode() === "open") e.target.dataset.draft = e.target.value; });
   $("#shopstate-btns").addEventListener("click", async (e) => {
     const btn = e.target.closest("[data-mode]"); if (!btn) return;
     const to = btn.dataset.mode;
@@ -413,7 +415,6 @@
     $$("#shopstate-btns button").forEach((b) => (b.disabled = true));
     try {
       const r = await API.setShopState(to, to === "open" ? null : msg);
-      if (to !== "open") $("#ss-msg").dataset.draft = "";
       toast(to === "closed" ? `Shop closed. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`
         : to === "paused" ? "Selling paused. Stock is kept; tap Resume when you're back."
         : products.some((p) => p.stock > 0) ? "Open again" : "Open, but every stock is 0. Add today's stock on Products.");
@@ -422,10 +423,19 @@
   });
   $("#ss-msg-save").addEventListener("click", async () => {
     const b = $("#ss-msg-save"); b.disabled = true;
-    try { await API.setStatusMessage($("#ss-msg").value.trim()); toast("Message updated"); await loadSettings(); }
+    const text = $("#ss-msg").value.trim();
+    if (!text) { b.disabled = false; return toast("Type a message first"); }
+    try { await API.setStatusMessage(text); toast("Customers now see your message"); $("#ss-msg").blur(); await loadSettings(); }
     catch (ex) { toast("Couldn't save: " + ex.message); }
     finally { b.disabled = false; }
   });
+  $("#ss-msg-clear").addEventListener("click", async () => {
+    const b = $("#ss-msg-clear"); b.disabled = true;
+    try { await API.setStatusMessage(null); $("#ss-msg").value = ""; toast("Message removed"); await loadSettings(); }
+    catch (ex) { toast("Couldn't remove: " + ex.message); }
+    finally { b.disabled = false; }
+  });
+  $("#ss-msg").addEventListener("keydown", (e) => { if (e.key === "Enter") { e.preventDefault(); $("#ss-msg-save").click(); } });
 
   // ---------- settings ----------
   async function loadSettings() {

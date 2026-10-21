@@ -147,3 +147,6 @@ body.private .pv { filter: blur(7px); user-select: none; }
 .shopstate.paused .dot { background: #d98a00; }
 .shopstate.closed { background: color-mix(in srgb, var(--accent) 10%, var(--surface)); border-color: color-mix(in srgb, var(--accent) 40%, transparent); }
 .shopstate.closed .dot { background: var(--accent); }
+.ss-msg { align-items: center; flex-wrap: wrap; }
+.ss-msg input { flex: 1 1 260px; }
+.ss-live { font-size: .72rem; font-weight: 800; letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }

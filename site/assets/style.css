@@ -345,3 +345,5 @@ button.opt { cursor: pointer; }
 .popcard .pop-msg { margin: 4px 0; font-size: 1.2rem; font-weight: 700; line-height: 1.4; padding: 12px; border-radius: 10px; background: var(--sunk); overflow-wrap: anywhere; }
 .popup.paused .popcard { border-top: 6px solid #b86e00; }
 .popup.closed .popcard { border-top: 6px solid #2b2140; }
+.statusbar.open { background: var(--pre); color: var(--pre-fg); }
+.popup.open .popcard { border-top: 6px solid var(--pre); }
