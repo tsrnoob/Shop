@@ -91,7 +91,8 @@ Then send the link to people after they add you on WeChat.
 | Leaving campus for the day | Type a message (optional) → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed" with your message, only preorders can be placed. Open orders stay as they are |
 | Tell customers something any time (e.g. "14:00 补货 · Restocking at 14:00") | Type it in the bar at the top → **Show message** (or Enter). Customers get a pop-up and a blue banner while the shop stays open. **Remove** takes it down; **Update message** changes it. Resuming/opening after a pause clears it |
 | Starting a new day | Set today's stock on **Products** (customers still see closed meanwhile), then **Open shop** at the top. The message disappears |
-| Bought more stock | Products → **Restock** → number → **Add** |
+| Adjust stock by a few | Products → tap **+** / **−** next to **Stock**. It saves by itself a moment after your last tap |
+| Bought more stock | Products → **Restock** → number → **Add** (this also counts it as bought, for the Inventory spending) |
 | Change a price | Products → type the new **Price** and press Enter (or just tap elsewhere). It saves by itself, so you can go down the list one after another |
 | Sold something in person | Inventory → **Record a sale made outside the site** |
 | Profit, stock value, spending | Inventory (menus are listed as their own rows) |

@@ -150,3 +150,12 @@ body.private .pv { filter: blur(7px); user-select: none; }
 .ss-msg { align-items: center; flex-wrap: wrap; }
 .ss-msg input { flex: 1 1 260px; }
 .ss-live { font-size: .72rem; font-weight: 800; letter-spacing: .06em; color: var(--accent); text-transform: uppercase; }
+
+/* stock +/− */
+.qty { display: inline-flex; align-items: stretch; }
+.qty input { width: 58px; text-align: center; border-radius: 0; border-left: 0; border-right: 0; -moz-appearance: textfield; }
+.qty input::-webkit-outer-spin-button, .qty input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.qbtn { width: 38px; border: 1px solid var(--line); background: var(--sunk); color: var(--fg); font: 700 1.15rem/1 var(--f-body); cursor: pointer; touch-action: manipulation; }
+.qbtn:first-child { border-radius: 8px 0 0 8px; }
+.qbtn:last-child { border-radius: 0 8px 8px 0; }
+.qbtn:active { background: var(--line); }

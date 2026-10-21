@@ -172,7 +172,7 @@
         <div class="edit">
           <label class="mini"><span>Price €</span><input data-f="price" inputmode="decimal" value="${p.price == null ? "" : Number(p.price).toFixed(2)}" placeholder="—"></label>
           <label class="mini"><span>Cost €</span><input data-f="cost" inputmode="decimal" value="${Number(p.cost).toFixed(2)}"></label>
-          <label class="mini"><span>Stock</span><input data-f="stock" type="number" min="0" inputmode="numeric" value="${p.stock}" data-was="${p.stock}"></label>
+          <div class="mini"><span>Stock</span><div class="qty"><button type="button" class="qbtn" data-step="-1" aria-label="One less">−</button><input data-f="stock" type="number" min="0" inputmode="numeric" value="${p.stock}" data-was="${p.stock}" aria-label="Stock"><button type="button" class="qbtn" data-step="1" aria-label="One more">+</button></div></div>
           <div class="mini stockbox"><div><span>Restock</span><input data-f="restock" type="number" min="1" inputmode="numeric" placeholder="+0"></div><button class="btn small" data-restock="${esc(p.id)}">Add</button></div>
           <label class="mini"><span>Category</span><select data-f="category">${catOptions(p.category)}</select></label>
           <label class="check"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> In shop</label>
@@ -182,7 +182,16 @@
       </div>`;
     }).join("");
   }
+  // +/− on the stock box: change the number right away, save once you stop tapping
+  const stepTimers = {};
+  function stepStock(btn) {
+    const row = btn.closest(".prow"), inp = $("[data-f=stock]", row);
+    inp.value = Math.max(0, (parseInt(inp.value, 10) || 0) + Number(btn.dataset.step));
+    clearTimeout(stepTimers[row.dataset.id]);
+    stepTimers[row.dataset.id] = setTimeout(() => saveField(inp), 600);
+  }
   $("#products").addEventListener("click", async (e) => {
+    const st = e.target.closest("[data-step]"); if (st) return stepStock(st);
     const open = e.target.closest("[data-open]"); if (open) return openEditor(products.find((p) => p.id === open.dataset.open));
     const rs = e.target.closest("[data-restock]");
     if (rs) {
@@ -225,11 +234,13 @@
     } else if (f === "category") patch = { category: el.value };
     else if (f === "active" || f === "on_shelf") patch = { [f]: el.checked };
     else return;
-    el.disabled = true; row.classList.add("saving");
+    if (f !== "stock") el.disabled = true; // the stock box stays usable so +/− taps aren't lost
+    row.classList.add("saving");
     try {
       if (stockTo !== null) { await API.setStock(p.id, p.stock, stockTo); p.stock = stockTo; }
       else { await API.updateProduct(p.id, patch); Object.assign(p, patch); }
-      revert(); // shows the stored value, nicely formatted
+      // show the stored value, unless more +/− taps came in meanwhile (they save on their own)
+      if (!(f === "stock" && parseInt(el.value, 10) !== stockTo)) revert();
       $(".flags", row).innerHTML = flagsOf(p);
       row.classList.toggle("off", rowOff(p));
       const s = $(".saved", row); s.hidden = false; clearTimeout(s._t); s._t = setTimeout(() => (s.hidden = true), 1500);
