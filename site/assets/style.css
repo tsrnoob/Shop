@@ -347,3 +347,12 @@ button.opt { cursor: pointer; }
 .popup.closed .popcard { border-top: 6px solid #2b2140; }
 .statusbar.open { background: var(--pre); color: var(--pre-fg); }
 .popup.open .popcard { border-top: 6px solid var(--pre); }
+
+/* ---------- section tabs ---------- */
+.sections { display: flex; gap: 8px; overflow-x: auto; scrollbar-width: none; padding: 16px 0 2px; margin-inline: -16px; padding-inline: 16px; scroll-padding-inline: 16px; }
+.sections::-webkit-scrollbar { display: none; }
+.sections button { flex: none; border: 1px solid var(--line); background: var(--surface); color: var(--fg); border-radius: 99px; padding: 8px 14px; font: 600 .9rem var(--f-body); cursor: pointer; white-space: nowrap; }
+.sections button .cn { font-family: var(--f-cn); }
+.sections button .n { font: 600 .72rem var(--f-num); color: var(--muted); margin-left: 2px; }
+.sections button[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
+.sections button[aria-selected="true"] .n { color: inherit; opacity: .7; }

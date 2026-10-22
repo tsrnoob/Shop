@@ -13,6 +13,10 @@
   const byId = () => Object.fromEntries(shop.products.map((p) => [p.id, p]));
   const name = (x) => x.name_cn || x.name_en;
   const shelfProducts = () => shop.products.filter((p) => p.on_shelf && p.price != null);
+  // shop tabs; "all" also shows the meal sets
+  const SECTIONS = [["all", "全部", "All"], ["rice", "饭", "Rice"], ["hotpot", "火锅", "Hot pot"], ["breakfast", "早餐", "Breakfast"], ["snack", "零食", "Snacks"], ["drink", "饮料", "Drinks"]];
+  const secOf = (p) => p.section || ({ main: "rice", drink: "drink", water: "drink" }[p.category] || "snack");
+  let section = "all";
   const optsOf = (slot) => { const P = byId(); return (slot.options || []).map((id) => P[id]).filter(Boolean); };
   const paidSlots = (b) => b.slots.filter((s) => !s.is_gift);
   const giftSlots = (b) => b.slots.filter((s) => s.is_gift);
@@ -229,7 +233,7 @@
   const setOk = (b) => tierAvailable(b, allTier(b));
   function renderSets() {
     const bs = shop.bundles.filter((b) => (b.combos || []).length);
-    $("#sets-section").hidden = !bs.length;
+    $("#sets-section").hidden = !bs.length || section !== "all";
     if (!bs.length) { $("#sets").innerHTML = ""; return; }
     const ok = bs.some(setOk), pre = !ok && bs.some(setAny);
     const live = bs.filter(setOk), pool = live.length ? live : bs.filter(setAny).length ? bs.filter(setAny) : bs;
@@ -436,8 +440,19 @@
       <button type="button" data-bump="${esc(key)}" data-d="1" aria-label="One more" ${qty >= max ? "disabled" : ""}>+</button>
     </div>`;
   }
+  function renderSections() {
+    const all = shelfProducts(), n = {};
+    for (const p of all) n[secOf(p)] = (n[secOf(p)] || 0) + 1;
+    if (section !== "all" && !n[section]) section = "all"; // tab emptied meanwhile
+    const tabs = SECTIONS.filter(([k]) => k === "all" || n[k]);
+    $("#sections").hidden = tabs.length < 3; // not worth tabs with one kind of product
+    $("#sections").innerHTML = tabs.map(([k, cn, en]) => `<button type="button" role="tab" data-sec="${k}" aria-selected="${k === section}">
+      <span class="cn">${cn}</span> ${en}${k === "all" ? "" : ` <span class="n">${n[k]}</span>`}</button>`).join("");
+  }
   function renderShelf() {
-    const el = $("#shelf"), list = shelfProducts();
+    const el = $("#shelf"), list = shelfProducts().filter((p) => section === "all" || secOf(p) === section);
+    const cur = SECTIONS.find(([k]) => k === section);
+    $("#shelf-title").innerHTML = section === "all" ? '<span class="cn">单品</span> Single items' : `<span class="cn">${cur[1]}</span> ${cur[2]}`;
     $("#shelf-title").hidden = !list.length && shop.bundles.length > 0;
     if (!list.length) { el.innerHTML = shop.bundles.length ? "" : `<div class="empty">Nothing on the shelf right now. Check back soon.</div>`; return; }
     el.innerHTML = list.map((p) => {
@@ -465,7 +480,13 @@
       </article>`;
     }).join("");
   }
-  function renderAll() { if (!session) return; renderSets(); renderShelf(); renderCartBar(); }
+  function renderAll() { if (!session) return; renderSections(); renderSets(); renderShelf(); renderCartBar(); }
+  $("#sections").addEventListener("click", (e) => {
+    const b = e.target.closest("[data-sec]"); if (!b || b.dataset.sec === section) return;
+    section = b.dataset.sec;
+    renderAll();
+    const nav = $("#sections"); if (nav.getBoundingClientRect().top < 0) nav.scrollIntoView({ block: "start" });
+  });
 
   document.addEventListener("click", (e) => {
     const a = e.target.closest("[data-add]");

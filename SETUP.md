@@ -85,7 +85,8 @@ Then send the link to people after they add you on WeChat.
 | Open preorders | Orders → **Preorders**, oldest first. Message the customer on WeChat once it's in |
 | Choose what a menu offers | Menus → tick or untick products in each choice. Each tick saves straight away and the prices recalculate (see below) |
 | Change the menu discount / target profit | Settings → **Menu discount target** (default €1.00) and **Menu target profit** (default €1.50) |
-| New drink or water for the menus | Products → **+ Add product** (category **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
+| New drink or water for the menus | Products → **+ Add product** (type **饮料 Drink** or **水 Water**), then tick it in the menu. Untick **Sell alone** if it should only come with menus |
+| Which shop tab a product is under | Products → **Type**: 饭 Rice, 火锅 Hot pot, 早餐 Breakfast, 零食 Snack / 锅巴 Guoba, 饮料 Drink. The shop opens on **全部 All**; tabs with nothing on the shelf are hidden |
 | Track 魔芋爽 single packs (optional) | Products: add packs to **卫龙 魔芋爽 … (单包)** via **Restock**. Not needed for menus to sell: gifts never make a menu sold out |
 | In a lecture / busy for a while | Top of the owner page → type a message (e.g. "上课中，14:00 回来 · In a lecture until 14:00") → **Pause selling**. Stock is kept; customers get a pop-up and a pinned banner with your message and can only preorder. **Resume selling** when you're back |
 | Leaving campus for the day | Type a message (optional) → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed" with your message, only preorders can be placed. Open orders stay as they are |

@@ -8,6 +8,16 @@
 
   let orders = [], products = [], settings = null, customers = [], bundles = [];
   const CATS = { main: "饭/火锅 Rice & hot pot", drink: "饮料 Drink", konjac: "魔芋爽单包 Konjac pack", guoba: "锅巴 Guoba", water: "水 Water", snack: "零食 Snack" };
+  // One "Type" per product sets both the menu-editor category and the shop tab (section)
+  const TYPES = [
+    ["rice", "饭 Rice", "main", "rice"], ["hotpot", "火锅 Hot pot", "main", "hotpot"],
+    ["breakfast", "早餐 Breakfast", "snack", "breakfast"], ["snack", "零食 Snack", "snack", "snack"],
+    ["guoba", "锅巴 Guoba", "guoba", "snack"], ["drink", "饮料 Drink", "drink", "drink"],
+    ["water", "水 Water (meal-set gift)", "water", "drink"], ["konjac", "魔芋爽单包 Konjac pack (meal-set gift)", "konjac", "snack"]
+  ];
+  const typeOf = (p) => (TYPES.find((t) => t[2] === p.category && t[3] === p.section) || TYPES.find((t) => t[2] === p.category) || TYPES[3])[0];
+  const typeRow = (key) => TYPES.find((t) => t[0] === key) || TYPES[3];
+  const typeOptions = (sel) => TYPES.map(([k, label]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${label}</option>`).join("");
   const catOptions = (sel) => Object.entries(CATS).map(([k, v]) => `<option value="${k}" ${k === sel ? "selected" : ""}>${v}</option>`).join("");
   let filter = "open", search = "", tab = ls.get("owner.tab", "orders");
 
@@ -153,7 +163,7 @@
   }
   const rowOff = (p) => !(p.active && (p.price != null || !p.on_shelf));
   function flagsOf(p) {
-    const flags = [`<span class="flag">${esc(CATS[p.category] || p.category)}</span>`];
+    const flags = [`<span class="flag">${esc(typeRow(typeOf(p))[1])}</span>`];
     if (!p.on_shelf) flags.push(`<span class="flag">Only in meal sets</span>`);
     else if (p.price == null) flags.push(`<span class="flag warn">No price · not sold alone</span>`);
     if (!p.active) flags.push(`<span class="flag">Hidden</span>`);
@@ -174,7 +184,7 @@
           <label class="mini"><span>Cost €</span><input data-f="cost" inputmode="decimal" value="${Number(p.cost).toFixed(2)}"></label>
           <div class="mini"><span>Stock</span><div class="qty"><button type="button" class="qbtn" data-step="-1" aria-label="One less">−</button><input data-f="stock" type="number" min="0" inputmode="numeric" value="${p.stock}" data-was="${p.stock}" aria-label="Stock"><button type="button" class="qbtn" data-step="1" aria-label="One more">+</button></div></div>
           <div class="mini stockbox"><div><span>Restock</span><input data-f="restock" type="number" min="1" inputmode="numeric" placeholder="+0"></div><button class="btn small" data-restock="${esc(p.id)}">Add</button></div>
-          <label class="mini"><span>Category</span><select data-f="category">${catOptions(p.category)}</select></label>
+          <label class="mini"><span>Type</span><select data-f="type">${typeOptions(typeOf(p))}</select></label>
           <label class="check"><input type="checkbox" data-f="active" ${p.active ? "checked" : ""}> In shop</label>
           <label class="check"><input type="checkbox" data-f="on_shelf" ${p.on_shelf ? "checked" : ""}> Sell alone</label>
           <div class="rowsave"><span class="saved" hidden>✓ Saved</span></div>
@@ -213,7 +223,7 @@
     const f = el.dataset.f;
     const revert = () => {
       if (f === "price") el.value = fmt2(p.price); else if (f === "cost") el.value = fmt2(p.cost);
-      else if (f === "stock") el.value = p.stock; else if (f === "category") el.value = p.category; else el.checked = !!p[f];
+      else if (f === "stock") el.value = p.stock; else if (f === "type") el.value = typeOf(p); else el.checked = !!p[f];
     };
     let patch = null, stockTo = null;
     if (f === "price") {
@@ -231,7 +241,7 @@
       if (!(v >= 0)) { toast("Stock must be 0 or more"); return revert(); }
       if (v === p.stock) return;
       stockTo = v;
-    } else if (f === "category") patch = { category: el.value };
+    } else if (f === "type") { const t = typeRow(el.value); patch = { category: t[2], section: t[3] }; }
     else if (f === "active" || f === "on_shelf") patch = { [f]: el.checked };
     else return;
     if (f !== "stock") el.disabled = true; // the stock box stays usable so +/− taps aren't lost
@@ -268,7 +278,7 @@
     $("#pe-stock").value = 0; $("#pe-stock-wrap").hidden = !!p;
     $("#pe-sort").value = p?.sort ?? (Math.max(0, ...products.map((x) => x.sort)) + 10);
     $("#pe-active").checked = p ? p.active : true; $("#pe-pre").checked = p ? p.preorder_ok : true;
-    $("#pe-shelf").checked = p ? p.on_shelf : true; $("#pe-cat").innerHTML = catOptions(p?.category || "snack");
+    $("#pe-shelf").checked = p ? p.on_shelf : true; $("#pe-cat").innerHTML = typeOptions(p ? typeOf(p) : "snack");
     $("#pe-err").hidden = true; $("#pe-file").value = "";
     $("#prod-sheet").hidden = false;
   }
@@ -296,7 +306,7 @@
       if (newImage) image_url = await API.uploadImage(newImage);
       const row = { name_cn, name_en, meta: $("#pe-meta").value.trim(), price, cost, sort, image_url,
         active: $("#pe-active").checked, preorder_ok: $("#pe-pre").checked,
-        on_shelf: $("#pe-shelf").checked, category: $("#pe-cat").value };
+        on_shelf: $("#pe-shelf").checked, category: typeRow($("#pe-cat").value)[2], section: typeRow($("#pe-cat").value)[3] };
       if (editing) await API.updateProduct(editing.id, row);
       else await API.addProduct({ ...row, id: "p" + Date.now().toString(36), stock: stock > 0 ? stock : 0, purchased: stock > 0 ? stock : 0 });
       $("#prod-sheet").hidden = true; toast(editing ? "Product saved" : "Product added");
