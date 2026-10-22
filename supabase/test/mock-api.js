@@ -36,7 +36,11 @@
   ];
   let slotSeq = 7;
   const cents = (x) => Math.round(Number(x) * 100);
+  for (const p of P) if (p.id.startsWith("wl-pc")) { p.preorder_ok = true; p.price = p.id === "wl-pc-sour" ? 0.5 : 0.8; p.stock = { "wl-pc-sour": 5, "wl-pc-spicy": 1, "wl-pc-mala": 0 }[p.id]; }
+  B.push({ id: "pack-konjac3", name_cn: "卫龙魔芋爽 3包 · 口味任选", name_en: "Weilong Konjac Shuang — any 3 packs", description: "3 packs, mix any flavours", price: 2.00, active: true, sort: 100, kind: "pack", section: "snack",
+    bundle_slots: [{ id: 9, label_cn: "魔芋爽 口味任选", label_en: "Pick any 3 packs", category: "konjac", qty: 3, is_gift: false, sort: 10, options: ["wl-pc-sour", "wl-pc-spicy", "wl-pc-mala"] }] });
   function combos(b) {
+    if (b.kind === "pack") return [{ p: [], retail: b.price, price: b.price }];
     const prod = (id) => P.find((p) => p.id === id && p.active);
     const slots = [...b.bundle_slots].sort((x, y) => x.sort - y.sort || x.id - y.id);
     const paid = slots.filter((s) => !s.is_gift), gifts = slots.filter((s) => s.is_gift);

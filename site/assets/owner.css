@@ -159,3 +159,4 @@ body.private .pv { filter: blur(7px); user-select: none; }
 .qbtn:first-child { border-radius: 8px 0 0 8px; }
 .qbtn:last-child { border-radius: 0 8px 8px 0; }
 .qbtn:active { background: var(--line); }
+.packprice { display: flex; align-items: flex-end; gap: 12px; flex-wrap: wrap; }

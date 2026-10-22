@@ -391,3 +391,8 @@ button.opt { cursor: pointer; }
   .hbtn .caret { display: none; }
   .hbtn { gap: 5px; padding: 0 8px; }
 }
+
+/* pack cards (e.g. 魔芋爽 3包): three pictures in one */
+.packph { display: grid; grid-template-columns: repeat(3, 1fr); align-items: center; padding: 8px 4px; gap: 2px; }
+.packph img { width: 100%; height: auto; aspect-ratio: 1; object-fit: contain; }
+.packcard .meta { font-family: var(--f-cn); }

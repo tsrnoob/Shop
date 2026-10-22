@@ -643,6 +643,14 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
         : `<span class="muted small">No ${esc(catName)} products yet. Add one under Products (category ${esc(catName)}) and it shows up here to tick.</span>`}</div>
     </div>`;
   }
+  // packs (e.g. 魔芋爽 3包) have one fixed price you set here
+  function packPrice(b) {
+    const P = Object.fromEntries(products.map((p) => [p.id, p]));
+    const cost = slotsOf(b).reduce((a, s) => a + s.qty * Math.max(0, ...(s.options || []).map((id) => Number(P[id]?.cost || 0))), 0);
+    const price = b.price == null ? null : Number(b.price);
+    return `<div class="packprice"><label class="mini"><span>Pack price €</span><input data-b="price" inputmode="decimal" value="${price == null ? "" : price.toFixed(2)}"></label>
+      <span class="muted small">Customers mix any flavours. Cost at most ${money(cost)}${price == null ? "" : ` · profit at least <b>${money(price - cost)}</b>`}</span></div>`;
+  }
   function renderBundles() {
     if (tab !== "menus") return;
     if (!bundles.length) { $("#bundles").innerHTML = `<div class="empty">No menus yet.</div>`; return; }
@@ -650,7 +658,7 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
         <div class="head"><div class="n-cn">${esc(b.name_cn)}<div class="muted small">${esc(b.name_en)}</div></div>
           <label class="check"><input type="checkbox" data-b="active" ${b.active ? "checked" : ""}> In shop</label></div>
         ${slotsOf(b).map(choiceBlock).join("")}
-        <div class="preview">${pricePreview(slotsOf(b))}</div>
+        <div class="preview">${b.kind === "pack" ? packPrice(b) : pricePreview(slotsOf(b))}</div>
       </div>`).join("");
   }
   $("#bundles").addEventListener("change", async (e) => {
@@ -662,6 +670,13 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
       try { await API.updateBundle(b.id, { active: box.checked }); b.active = box.checked; card.classList.toggle("off", !b.active); toast(b.active ? "Menu is in the shop" : "Menu hidden from the shop"); }
       catch (ex) { box.checked = !box.checked; toast("Couldn't save: " + ex.message); }
       box.disabled = false; return;
+    }
+    if (box.matches("[data-b=price]")) {
+      const v = num(box.value);
+      if (v === null || Number.isNaN(v) || v <= 0) { toast("Price must be a number, e.g. 2.00"); box.value = b.price == null ? "" : Number(b.price).toFixed(2); return; }
+      try { await API.updateBundle(b.id, { price: Math.round(v * 100) / 100 }); b.price = Math.round(v * 100) / 100; $(".preview", card).innerHTML = packPrice(b); toast("Pack price saved"); }
+      catch (ex) { toast("Couldn't save: " + ex.message); }
+      return;
     }
     if (!box.matches("[data-opt]")) return;
     const sid = Number(box.closest(".mchoice").dataset.sid);
