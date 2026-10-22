@@ -58,6 +58,8 @@
     $("#shop-view").hidden = !inn;
     $("#who").hidden = !inn;
     $("#open-orders").hidden = !inn;
+    $("#menu-btn").hidden = !inn;
+    closeDrops();
     $("#who-id").textContent = inn ? session.username : "";
     renderCartBar();
     fillAds();
@@ -614,7 +616,7 @@
   }
 
   // ---------- my orders ----------
-  $("#open-orders").onclick = openOrders;
+  $("#open-orders").onclick = () => { closeDrops(); openOrders(); };
   const STATUS = { new: "待确认 Waiting", confirmed: "已确认 Confirmed", delivered: "已完成 Delivered", cancelled: "已取消 Cancelled" };
   async function openOrders() {
     openSheet("#orders-sheet");
@@ -651,6 +653,20 @@
   });
 
   // ---------- start ----------
+  // ---------- header drop-downs (info, account menu) ----------
+  function closeDrops() {
+    for (const [b, p] of [["#info-btn", "#info-panel"], ["#menu-btn", "#menu-panel"]]) { $(p).hidden = true; $(b).setAttribute("aria-expanded", "false"); }
+  }
+  function toggleDrop(btn, panel) {
+    const open = $(panel).hidden;
+    closeDrops();
+    if (open) { $(panel).hidden = false; $(btn).setAttribute("aria-expanded", "true"); }
+  }
+  $("#info-btn").onclick = (e) => { e.stopPropagation(); toggleDrop("#info-btn", "#info-panel"); };
+  $("#menu-btn").onclick = (e) => { e.stopPropagation(); toggleDrop("#menu-btn", "#menu-panel"); };
+  document.addEventListener("click", (e) => { if (!e.target.closest(".dropdown")) closeDrops(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape") closeDrops(); });
+
   // the status bar sits right under the header when the header is pinned (wide screens), else at the very top
   function setHeaderOffset() {
     const h = $("header.sign");

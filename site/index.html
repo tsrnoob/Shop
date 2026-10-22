@@ -20,8 +20,30 @@
 <header class="sign">
   <div class="wrap">
     <h1><span id="shop-name">Garching Snack Shop</span><small>TUM Garching · 货到付款 pay on pickup</small></h1>
-    <div class="who" id="who" hidden><b id="who-id"></b><button class="linkish" id="logout" type="button">退出 Log out</button></div>
-    <button class="btn small" id="open-orders" type="button" hidden>我的订单 My orders</button>
+    <div class="hdr-actions">
+      <button class="hbtn" id="info-btn" type="button" aria-expanded="false" aria-controls="info-panel" title="须知 Info">
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 2a10 10 0 1 0 0 20 10 10 0 0 0 0-20zm0 4.2a1.3 1.3 0 1 1 0 2.6 1.3 1.3 0 0 1 0-2.6zM13.5 18h-3v-1.6h.7v-4.8h-.7V10h2.3v6.4h.7z"/></svg>
+        <span class="lbl">须知 Info</span>
+      </button>
+      <button class="hbtn" id="menu-btn" type="button" aria-expanded="false" aria-controls="menu-panel" hidden>
+        <svg viewBox="0 0 24 24" width="18" height="18" aria-hidden="true"><path fill="currentColor" d="M12 12a4.5 4.5 0 1 0 0-9 4.5 4.5 0 0 0 0 9zm0 2c-4.4 0-8 2.2-8 5v1.5c0 .3.2.5.5.5h15c.3 0 .5-.2.5-.5V19c0-2.8-3.6-5-8-5z"/></svg>
+        <b id="who-id"></b>
+        <svg class="caret" viewBox="0 0 24 24" width="14" height="14" aria-hidden="true"><path fill="currentColor" d="M7 10l5 5 5-5z"/></svg>
+      </button>
+    </div>
+  </div>
+  <!-- drop-downs -->
+  <div class="dropdown" id="info-panel" hidden>
+    <ul class="info-list">
+      <li><b id="area-name">Garching Forschungszentrum</b> only · we agree on the exact spot on WeChat</li>
+      <li>Pay on pickup: <b>cash, PayPal or WeChat Pay</b></li>
+      <li>Sold out? <b>Preorder</b> it and I'll tell you on WeChat when it's in</li>
+    </ul>
+  </div>
+  <div class="dropdown menu" id="menu-panel" hidden>
+    <div class="who" id="who" hidden>已登录 Logged in</div>
+    <button class="mitem" id="open-orders" type="button" hidden>我的订单 · My orders</button>
+    <button class="mitem" id="logout" type="button">退出 · Log out</button>
   </div>
 </header>
 
@@ -59,11 +81,6 @@
 <main id="shop-view" hidden>
   <div class="wrap">
     <div class="notice" id="notice" hidden></div>
-    <div class="strip">
-      <span><b id="area-name">Garching Forschungszentrum</b> only · we agree on the exact spot on WeChat</span>
-      <span>Pay on pickup: <b>cash, PayPal or WeChat Pay</b></span>
-      <span>Sold out? <b>Preorder</b> it and I'll tell you on WeChat when it's in</span>
-    </div>
     <nav class="sections" id="sections" role="tablist" aria-label="Sections" hidden></nav>
     <section id="sets-section" hidden>
       <h2 class="sec"><span class="cn">套餐</span> Meal sets</h2>
