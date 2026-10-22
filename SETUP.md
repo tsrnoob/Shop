@@ -92,7 +92,7 @@ Then send the link to people after they add you on WeChat.
 | Leaving campus for the day | Type a message (optional) → **Close for today** (tap twice). All stock goes to 0, customers see "已打烊 Closed" with your message, only preorders can be placed. Open orders stay as they are |
 | Tell customers something any time (e.g. "14:00 补货 · Restocking at 14:00") | Type it in the bar at the top → **Show message** (or Enter). Customers get a pop-up and a blue banner while the shop stays open. **Remove** takes it down; **Update message** changes it. Resuming/opening after a pause clears it |
 | Starting a new day | Set today's stock on **Products** (customers still see closed meanwhile), then **Open shop** at the top. The message disappears |
-| 魔芋爽 3-pack price | Menus → **卫龙魔芋爽 3包** → **Pack price €**. Customers pick any 3 single packs in any mix; stock comes off the single packs (the same ones Menu A gives away) |
+| 魔芋爽 3-pack price | Priced by flavour: each single pack's **Price** on Products (set to cost + €0.30) is added up for the 3 picked, then rounded to the nearest €0.50 (3 × small 酸辣 = €1.00, other mixes €1.50). To use one fixed price instead: Menus → **卫龙魔芋爽 3包** → **Fixed pack price €**. Stock comes off the single packs (the same ones Menu A gives away) |
 | Adjust stock by a few | Products → tap **+** / **−** next to **Stock**. It saves by itself a moment after your last tap |
 | Bought more stock | Products → **Restock** → number → **Add** (this also counts it as bought, for the Inventory spending) |
 | Change a price | Products → type the new **Price** and press Enter (or just tap elsewhere). It saves by itself, so you can go down the list one after another |

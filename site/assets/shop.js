@@ -31,6 +31,13 @@
   const meals = () => shop.bundles.filter((b) => !isPack(b) && (b.combos || []).length);
   const packs = () => shop.bundles.filter((b) => isPack(b) && (b.combos || []).length);
   const packSec = (b) => b.section || "snack";
+  // a pack's price: fixed if the owner set one, otherwise the picked packs' own prices added up, rounded to the nearest €0.50
+  function packPriceOf(b, picks) {
+    if (b.price != null) return Number(b.price);
+    const P = byId(); let sum = 0;
+    for (const s of b.slots) if (!s.is_gift) for (const [pid, n] of Object.entries(picks[s.id] || {})) sum += n * Number(P[pid]?.price || 0);
+    return Math.round(sum * 2) / 2;
+  }
   function comboFor(b, picks) {
     if (isPack(b)) return (b.combos || [])[0] || null;
     const ids = paidSlots(b).map((s) => Object.keys(picks[s.id] || {}).find((pid) => picks[s.id][pid] > 0));
@@ -216,7 +223,11 @@
     toast(pre ? "已加入预订 Added as preorder" : "已加入 Added to cart");
   }
   function lineTotal(l) {
-    if (l.bundle) { const b = shop.bundles.find((x) => x.id === l.bundle); const c = b && comboFor(b, l.picks); return c ? l.qty * c.price : 0; }
+    if (l.bundle) {
+      const b = shop.bundles.find((x) => x.id === l.bundle); if (!b) return 0;
+      if (isPack(b)) return l.qty * packPriceOf(b, l.picks);
+      const c = comboFor(b, l.picks); return c ? l.qty * c.price : 0;
+    }
     const p = byId()[l.id]; return p ? l.qty * p.price : 0;
   }
   function renderCartBar() {
@@ -411,6 +422,7 @@
     btn.disabled = !combo;
     btn.classList.toggle("primary", !pre); btn.classList.toggle("prebtn", pre);
     btn.textContent = !combo ? "请选择 Choose everything above"
+      : isPack(b) ? `${pre ? "预订 Preorder" : "加入购物车 Add to cart"} · ${money(packPriceOf(b, picking.picks))}`
       : `${pre ? "预订 Preorder" : "加入购物车 Add to cart"} · ${money(combo.price)}${saving(combo) > 0.005 ? ` (省 ${money(saving(combo))})` : ""}`;
     $("#set-err").hidden = true;
   }
@@ -508,7 +520,7 @@
         <div class="n-cn">${esc(b.name_cn)}</div>
         <div class="n-en">${esc(b.name_en)}</div>
         <div class="meta">${opts.map((p) => esc((p.name_cn || "").replace(/^卫龙 魔芋爽 /, "").replace(/ \(单包.*\)$/, ""))).join(" / ")}</div>
-        <div class="row"><span class="tag">${money(b.price)}</span>${ok || pre ? `<button class="btn small ${ok ? "primary" : "prebtn"}" type="button" data-pack="${esc(b.id)}">${ok ? "选择 Choose" : "预订 Preorder"}</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
+        <div class="row"><span class="tag">${money(b.price != null ? b.price : (b.combos[0] || {}).price)}${b.price == null ? " 起" : ""}</span>${ok || pre ? `<button class="btn small ${ok ? "primary" : "prebtn"}" type="button" data-pack="${esc(b.id)}">${ok ? "选择 Choose" : "预订 Preorder"}</button>` : `<button class="btn small" disabled>售罄 Sold out</button>`}</div>
       </div>
     </article>`;
   }

@@ -648,8 +648,12 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
     const P = Object.fromEntries(products.map((p) => [p.id, p]));
     const cost = slotsOf(b).reduce((a, s) => a + s.qty * Math.max(0, ...(s.options || []).map((id) => Number(P[id]?.cost || 0))), 0);
     const price = b.price == null ? null : Number(b.price);
-    return `<div class="packprice"><label class="mini"><span>Pack price €</span><input data-b="price" inputmode="decimal" value="${price == null ? "" : price.toFixed(2)}"></label>
-      <span class="muted small">Customers mix any flavours. Cost at most ${money(cost)}${price == null ? "" : ` · profit at least <b>${money(price - cost)}</b>`}</span></div>`;
+    const opts = slotsOf(b).flatMap((s) => (s.options || []).map((id) => P[id]).filter(Boolean));
+    const each = opts.map((p) => `${esc(p.name_cn || p.name_en)} <b>${p.price == null ? "no price" : money(p.price)}</b> (cost ${money(p.cost)})`).join("<br>");
+    return `<div class="packprice"><label class="mini"><span>Fixed pack price €</span><input data-b="price" inputmode="decimal" placeholder="by flavour" value="${price == null ? "" : price.toFixed(2)}"></label>
+      <span class="muted small">${price == null
+        ? `Priced by flavour: the picked packs' prices added up, rounded to the nearest €0.50. Each pack's price is its cost + €0.30 (change on Products):<br>${each}`
+        : `Fixed price for any mix. Cost at most ${money(cost)} · profit at least <b>${money(price - cost)}</b>. Clear the box to price by flavour.`}</span></div>`;
   }
   function renderBundles() {
     if (tab !== "menus") return;
@@ -673,8 +677,9 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
     }
     if (box.matches("[data-b=price]")) {
       const v = num(box.value);
-      if (v === null || Number.isNaN(v) || v <= 0) { toast("Price must be a number, e.g. 2.00"); box.value = b.price == null ? "" : Number(b.price).toFixed(2); return; }
-      try { await API.updateBundle(b.id, { price: Math.round(v * 100) / 100 }); b.price = Math.round(v * 100) / 100; $(".preview", card).innerHTML = packPrice(b); toast("Pack price saved"); }
+      if (Number.isNaN(v) || (v !== null && v <= 0)) { toast("Price must be a number, e.g. 2.00 (or empty to price by flavour)"); box.value = b.price == null ? "" : Number(b.price).toFixed(2); return; }
+      const price = v === null ? null : Math.round(v * 100) / 100;
+      try { await API.updateBundle(b.id, { price }); b.price = price; $(".preview", card).innerHTML = packPrice(b); toast(price == null ? "Pack now priced by flavour" : "Pack price saved"); }
       catch (ex) { toast("Couldn't save: " + ex.message); }
       return;
     }
