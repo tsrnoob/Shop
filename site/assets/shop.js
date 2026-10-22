@@ -446,8 +446,10 @@
     if (section !== "all" && !n[section]) section = "all"; // tab emptied meanwhile
     const tabs = SECTIONS.filter(([k]) => k === "all" || n[k]);
     $("#sections").hidden = tabs.length < 3; // not worth tabs with one kind of product
-    $("#sections").innerHTML = tabs.map(([k, cn, en]) => `<button type="button" role="tab" data-sec="${k}" aria-selected="${k === section}">
-      <span class="cn">${cn}</span> ${en}${k === "all" ? "" : ` <span class="n">${n[k]}</span>`}</button>`).join("");
+    const house = `<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true"><path fill="currentColor" d="M12 3.2 2.6 11a1 1 0 0 0 1.3 1.5L5 11.6V20a1 1 0 0 0 1 1h4.5v-5.5h3V21H18a1 1 0 0 0 1-1v-8.4l1.1.9a1 1 0 1 0 1.3-1.5z"/></svg>`;
+    $("#sections").innerHTML = tabs.map(([k, cn, en]) => k === "all"
+      ? `<button type="button" role="tab" class="home" data-sec="all" aria-selected="${section === "all"}" aria-label="全部 All" title="全部 All">${house}</button>`
+      : `<button type="button" role="tab" data-sec="${k}" aria-selected="${k === section}"><span class="cn">${cn}</span> ${en} <span class="n">${n[k]}</span></button>`).join("");
   }
   function renderShelf() {
     const el = $("#shelf"), list = shelfProducts().filter((p) => section === "all" || secOf(p) === section);

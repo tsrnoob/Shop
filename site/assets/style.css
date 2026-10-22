@@ -356,3 +356,9 @@ button.opt { cursor: pointer; }
 .sections button .n { font: 600 .72rem var(--f-num); color: var(--muted); margin-left: 2px; }
 .sections button[aria-selected="true"] { background: var(--fg); color: var(--bg); border-color: var(--fg); }
 .sections button[aria-selected="true"] .n { color: inherit; opacity: .7; }
+/* the "all" tab: a round home button in the shop's red */
+.sections { align-items: center; }
+.sections button.home { width: 42px; height: 42px; padding: 0; border-radius: 50%; display: grid; place-items: center; background: var(--accent); border-color: var(--accent); color: var(--accent-fg); box-shadow: 0 3px 10px color-mix(in srgb, var(--accent) 40%, transparent); }
+.sections button.home[aria-selected="true"] { background: var(--accent); border-color: var(--accent); color: var(--accent-fg); box-shadow: 0 0 0 3px var(--bg), 0 0 0 5px var(--accent); }
+.sections button.home:not([aria-selected="true"]) { background: var(--surface); color: var(--accent); border: 2px solid var(--accent); box-shadow: none; }
+.sections { padding-top: 18px; padding-bottom: 6px; }
