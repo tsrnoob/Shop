@@ -3,7 +3,7 @@
   const plus = (n) => { const d = new Date(); d.setHours(12, 0, 0, 0); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
   const err = (m) => { const e = new Error(m); e.code = m; throw e; };
   const S = { owner_email: "owner@test", shop_name: "Garching Snack Shop", wechat_contact: "tsrnoob", shop_open: true, shop_paused: false, status_message: null,
-    locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 1.00, bundle_min_profit: 1.50 };
+    locations: ["Garching Forschungszentrum"], preorder_days: 5, max_qty: 10, max_open_orders: 5, notice: null, ntfy_topic: null, bundle_discount: 0.50, bundle_min_profit: 1.50 };
   const P = [
     ["5885", "小龙坎 方便火锅粉 经典款", "Shoo Loong Kan Instant Hot Pot Vermicelli (Classic)", "Bowl · 295 g", 5.00, 3.68, 1, "main", true],
     ["5886", "自嗨锅 川式卤肉盖浇饭", "Zihaiguo Sichuan Braised Pork Rice (self-heating)", "Self-heating rice box · 262 g", 5.00, 3.57, 2, "main", true],
@@ -49,7 +49,7 @@
     if (!paid.length) return [];
     let acc = [{ p: [], r: 0, c: 0 }];
     for (const s of paid) acc = acc.flatMap((a) => s.options.map(prod).filter((p) => p && p.price != null).map((p) => ({ p: [...a.p, p.id], r: a.r + cents(p.price), c: a.c + cents(p.cost) })));
-    return acc.map((a) => ({ p: a.p, retail: a.r / 100, price: Math.floor(Math.max(a.r - cents(S.bundle_discount), a.c + giftC + cents(S.bundle_min_profit)) / 50) * 50 / 100 }));
+    return acc.map((a) => ({ p: a.p, retail: a.r / 100, price: Math.min(a.r, Math.max(Math.ceil((a.r - cents(S.bundle_discount)) / 50) * 50, Math.floor((a.c + giftC + cents(S.bundle_min_profit)) / 50) * 50)) / 100 }));
   }
   const C = [{ id: 1, username: "lin2002", wechat_id: "wxid_lin2002", note: "MI", pw: "test", active: true, failed_logins: 0, locked_until: null, last_login_at: null, created_at: new Date().toISOString() }];
   const sessions = JSON.parse(sessionStorage.getItem("mock.sessions") || "{}");

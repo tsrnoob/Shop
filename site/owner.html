@@ -88,7 +88,7 @@
     <div class="toolbar">
       <h2>Menus · 套餐</h2>
     </div>
-    <p class="hint">Tick which products each choice offers; every tick is saved straight away. A menu can be bought as long as its paid items are in stock. Free gifts never make it sold out: they come out of stock while there is some, otherwise you hand them out from your boxes. Prices are calculated for every combination: the shop prices of the paid items minus <b class="num" id="mh-disc">€1.00</b> when possible, but aiming for at least <b class="num" id="mh-minp">€1.50</b> profit (free gifts counted at the most expensive ticked one), then rounded <b>down</b> to the nearest 50 cents. Rounding down can take up to 49 cents off the profit. Combinations with the same price appear as one card in the shop. Change the two amounts under Settings.</p>
+    <p class="hint">Tick which products each choice offers; every tick is saved straight away. A menu can be bought as long as its paid items are in stock. Free gifts never make it sold out: they come out of stock while there is some, otherwise you hand them out from your boxes. Prices are calculated for every combination: customers save at most <b class="num" id="mh-disc">€0.50</b> on the shop prices of the paid items. When that would leave less than <b class="num" id="mh-minp">€1.50</b> profit (free gifts counted at the most expensive ticked one), they save less, down to nothing. Prices land on 50 cents. Combinations with the same price appear as one card in the shop. Change the two amounts under Settings.</p>
     <div id="bundles" class="blist"></div>
   </section>
 
@@ -148,10 +148,10 @@
         <label class="field"><span>Max open orders per customer</span><input id="st-open" type="number" min="1" max="50" inputmode="numeric"></label>
       </div>
       <div class="grid3">
-        <label class="field"><span>Menu discount target (€)</span><input id="st-disc" inputmode="decimal"></label>
+        <label class="field"><span>Menu: most a customer saves (€)</span><input id="st-disc" inputmode="decimal"></label>
         <label class="field"><span>Menu target profit (€)</span><input id="st-minp" inputmode="decimal"></label>
       </div>
-      <p class="hint">Menus cost the single prices minus the discount target when possible, aiming for the target profit, then rounded down to the nearest 50 cents (so profit can end up to 49 cents below the target).</p>
+      <p class="hint">Customers save at most this much on a menu compared with buying the items singly. If the profit would fall below the target profit, they save less (down to nothing). Prices land on 50 cents.</p>
       <label class="field"><span>Banner message on the shop (optional)</span><input id="st-notice" maxlength="200" placeholder="e.g. Back on Monday · 周一回来"></label>
       <div class="grid3">
         <label class="field"><span>Ads: AdSense publisher ID</span><input id="st-adclient" maxlength="40" autocapitalize="none" spellcheck="false" placeholder="ca-pub-1234567890123456"></label>

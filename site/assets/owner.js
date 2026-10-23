@@ -465,8 +465,8 @@
     $("#st-name").value = settings.shop_name; $("#st-wechat").value = settings.wechat_contact;
     $("#st-locations").value = (settings.locations || []).join("\n");
 $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_orders;
-    $("#st-disc").value = Number(settings.bundle_discount ?? 1).toFixed(2); $("#st-minp").value = Number(settings.bundle_min_profit ?? 1.5).toFixed(2);
-    $("#mh-disc").textContent = money(settings.bundle_discount ?? 1); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
+    $("#st-disc").value = Number(settings.bundle_discount ?? 0.5).toFixed(2); $("#st-minp").value = Number(settings.bundle_min_profit ?? 1.5).toFixed(2);
+    $("#mh-disc").textContent = money(settings.bundle_discount ?? 0.5); $("#mh-minp").textContent = money(settings.bundle_min_profit ?? 1.5);
     renderBundles();
     renderShopState();
     $("#st-notice").value = settings.notice || ""; $("#st-ntfy").value = settings.ntfy_topic || ""; $("#st-adclient").value = settings.ad_client || ""; $("#st-adslot").value = settings.ad_slot || ""; $("#st-owner").textContent = settings.owner_email;
@@ -491,7 +491,7 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
       adClient && !/^ca-pub-\d{10,20}$/.test(adClient) ? "AdSense publisher ID looks like ca-pub-1234567890123456." :
       adSlot && !/^\d{6,20}$/.test(adSlot) ? "Ad unit ID is a number, e.g. 1234567890." :
       adSlot && !adClient ? "Fill in the AdSense publisher ID too." :
-      !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Menu discount must be a number, e.g. 1.00" :
+      !(patch.bundle_discount >= 0 && patch.bundle_discount <= 50) ? "Most a customer saves must be a number, e.g. 0.50" :
       !(patch.bundle_min_profit >= 0 && patch.bundle_min_profit <= 50) ? "Menu target profit must be a number, e.g. 1.50" : "";
     if (bad) { err.textContent = bad; err.hidden = false; return; }
     err.hidden = true;
@@ -586,10 +586,11 @@ $("#st-max").value = settings.max_qty; $("#st-open").value = settings.max_open_o
   }
   const cents = (x) => Math.round(Number(x) * 100);
   const slotsOf = (b) => [...(b.bundle_slots || [])].sort((x, y) => x.sort - y.sort || x.id - y.id);
-  // Same rule as the database: round DOWN to 50 cents of max(shop prices − discount, costs + target profit)
+  // Same rule as the database: customers save at most the "max saving" (€0.50);
+  // the saving shrinks (down to €0) when the profit would fall below the target. Prices land on 50 cents.
   function menuPrice(retailC, costC) {
-    const disc = cents(settings?.bundle_discount ?? 1), minp = cents(settings?.bundle_min_profit ?? 1.5);
-    return Math.floor(Math.max(retailC - disc, costC + minp) / 50) * 50;
+    const disc = cents(settings?.bundle_discount ?? 0.5), minp = cents(settings?.bundle_min_profit ?? 1.5);
+    return Math.min(retailC, Math.max(Math.ceil((retailC - disc) / 50) * 50, Math.floor((costC + minp) / 50) * 50));
   }
   // all paid combinations of a menu, with price, saving and profit
   function menuCombos(slots) {
