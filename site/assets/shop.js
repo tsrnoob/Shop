@@ -311,19 +311,34 @@
         const n = new Set(m.combos.map((c) => c.p[paidSlots(m).indexOf(s)])).size;
         return `<li>${esc(s.label_cn)} <span class="muted">${esc(s.label_en)}</span> · ${n} 种 choice${n === 1 ? "" : "s"}</li>`;
       }).join("");
-      return `<button type="button" class="setpick ${ok ? "" : pre ? "pre" : "out"}" ${can ? `data-member="${i}"` : "disabled"}>
-        <span class="setpick-imgs">${imgs.map((p) => `<img src="${esc(p.image_url)}" alt="">`).join("")}</span>
+      const open = picking.more?.has(i);
+      return `<div class="setpick ${ok ? "" : pre ? "pre" : "out"}" ${can ? `data-member="${i}" role="button" tabindex="0"` : 'aria-disabled="true"'}>
+        <span class="setpick-imgs">${imgs.map((p) => zoomImg(p)).join("")}</span>
         <span class="setpick-body">
           <span class="n-cn">${esc(m.name_cn)}</span>
           <span class="n-en">${esc(m.name_en)}</span>
           <ul class="slots">${lines}</ul>
           ${pre ? `<span class="prenote"><span>今天没货，可以预订 · Out right now, preorder it</span></span>` : ""}
-          <span class="setpick-foot">${can ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}<span class="go">${ok ? "选这个 Choose →" : "预订 Preorder →"}</span>` : `<span class="muted">售罄 Sold out</span>`}</span>
+          ${open ? insideOf(m) : ""}
+          <span class="setpick-foot">${can ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}` : `<span class="muted">售罄 Sold out</span>`}
+            <span class="foot-btns"><button type="button" class="btn small ghost" data-more="${i}" aria-expanded="${!!open}">${open ? "收起 Hide ▴" : "查看菜品 What's inside ▾"}</button>
+            ${can ? `<span class="go">${ok ? "选这个 Choose →" : "预订 Preorder →"}</span>` : ""}</span></span>
         </span>
-      </button>`;
+      </div>`;
     }).join("")}</div>`;
     $("#set-add").hidden = true;
     $("#set-err").hidden = true;
+  }
+  // every food a set can contain, with pictures (tap one for details)
+  function insideOf(m) {
+    const P = byId();
+    return `<div class="inside">${m.slots.map((s) => {
+      const items = s.is_gift ? optsOf(s) : [...new Set(m.combos.map((c) => c.p[paidSlots(m).indexOf(s)]))].map((id) => P[id]).filter(Boolean);
+      if (!items.length) return "";
+      return `<div class="inside-slot"><div class="inside-head"><b>${esc(s.label_cn)}</b> <span class="muted">${esc(s.label_en)}</span>${s.is_gift ? ` <span class="gift">送 free${s.qty > 1 ? " × " + s.qty : ""}</span>` : " · 选 1 pick 1"}</div>
+        <div class="inside-grid">${items.map((p) => `<button type="button" class="inside-item ${!s.is_gift && freeStock(p.id) <= 0 ? "dim" : ""}" data-zoom="${esc(p.id)}">
+          <img src="${esc(p.image_url)}" alt="" loading="lazy"><span class="nm">${esc(p.name_cn || p.name_en)}</span>${!s.is_gift && freeStock(p.id) <= 0 ? '<span class="pre-chip">预订</span>' : ""}</button>`).join("")}</div></div>`;
+    }).join("")}</div>`;
   }
   // combinations still possible if this product is taken in paid choice i, given the other picks
   function combosWith(i, pid) {
@@ -384,7 +399,7 @@
       if (!isPaid && opts.length === 1) {
         const p = opts[0];
         return `<div class="slot">${head}<div class="opts"><div class="opt on fixed">
-          <img src="${esc(p.image_url)}" alt="">
+          ${zoomImg(p)}
           <span class="t"><span class="n-cn">${s.qty > 1 ? s.qty + " × " : ""}${esc(p.name_cn)}</span><span class="sub">${esc(p.meta || p.name_en)}</span><span class="save">送 free · 已包含 included</span></span>
           <span class="tickmark" aria-hidden="true">✓</span></div></div></div>`;
       }
@@ -407,7 +422,7 @@
           ? `<span class="radio ${n ? "on" : ""}" aria-hidden="true"></span>`
           : `<span class="stepper"><button type="button" data-dec="${s.id}|${esc(p.id)}" ${n ? "" : "disabled"} aria-label="One less">−</button><span>${n}</span><button type="button" data-inc="${s.id}|${esc(p.id)}" ${have >= s.qty || (free <= 0 && !(mix && p.preorder_ok)) ? "disabled" : ""} aria-label="One more">+</button></span>`;
         return `<${single ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${single && !out ? `data-pick="${s.id}|${esc(p.id)}|${s.qty}"` : ""} ${single && out ? "disabled" : ""}>
-          <img src="${esc(p.image_url)}" alt="">
+          ${zoomImg(p)}
           <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${preOpt ? `<span class="pre-chip">今天没货 · 可预订 preorder</span>` : ""}${sv ? `<span class="save">${sv}</span>` : ""}</span>
           ${ctrl}
         </${single ? "button" : "div"}>`;
@@ -430,8 +445,13 @@
   function otherSlotUse(sid, pid) {
     let n = 0; for (const [s, picks] of Object.entries(picking.picks)) if (s !== String(sid)) n += picks[pid] || 0; return n;
   }
+  $("#set-slots").addEventListener("keydown", (e) => {
+    if ((e.key === "Enter" || e.key === " ") && e.target.matches(".setpick[data-member]")) { e.preventDefault(); e.target.click(); }
+  });
   $("#set-slots").addEventListener("click", (e) => {
     if (e.target.closest("[data-back]")) { picking.step = "set"; renderPicker(); $("#set-sheet .sheet").scrollTop = 0; return; }
+    const more = e.target.closest("[data-more]");
+    if (more) { const i = Number(more.dataset.more); picking.more ||= new Set(); picking.more.has(i) ? picking.more.delete(i) : picking.more.add(i); renderPicker(); return; }
     const mem = e.target.closest("[data-member]");
     if (mem) { const i = Number(mem.dataset.member); if (i !== picking.mi) setMember(i); return; }
     const pick = e.target.closest("[data-pick]"), inc = e.target.closest("[data-inc]"), dec = e.target.closest("[data-dec]");
@@ -498,7 +518,7 @@
       else if (inCart) action = stepper(k, inCart, lineMaxSingle(p, pre, k));
       else action = `<button class="btn small ${pre ? "prebtn" : "primary"}" type="button" data-add="${esc(p.id)}" data-pre="${pre ? 1 : 0}">${pre ? "预订 Preorder" : "加入 Add"}</button>`;
       return `<article class="prod ${pre ? "pre" : out ? "soldout" : ""}">
-        <div class="ph"><img src="${esc(p.image_url)}" alt="${esc(p.name_en)}" loading="lazy">${badge}</div>
+        <div class="ph" data-zoom="${esc(p.id)}" role="button" aria-label="查看详情 Details: ${esc(p.name_en)}"><img src="${esc(p.image_url)}" alt="${esc(p.name_en)}" loading="lazy">${badge}<span class="zoom-ico" aria-hidden="true">${ZOOM}</span></div>
         <div class="info">
           <div class="n-cn">${esc(p.name_cn)}</div>
           <div class="n-en">${esc(p.name_en)}</div>
@@ -515,7 +535,7 @@
     const ok = free >= s.qty, pre = !ok && opts.some((p) => p.preorder_ok);
     const imgs = opts.slice(0, 3).map((p) => `<img src="${esc(p.image_url)}" alt="" loading="lazy">`).join("");
     return `<article class="prod packcard ${ok ? "" : pre ? "pre" : "soldout"}">
-      <div class="ph packph">${imgs}<span class="stock ${ok ? "" : pre ? "prebadge" : "out"}">${ok ? `${s.qty} 包任选 · mix ${s.qty}` : pre ? "可预订 Preorder" : "售罄 Sold out"}</span></div>
+      <div class="ph packph" ${ok || pre ? `data-pack="${esc(b.id)}" role="button"` : ""}>${imgs}<span class="stock ${ok ? "" : pre ? "prebadge" : "out"}">${ok ? `${s.qty} 包任选 · mix ${s.qty}` : pre ? "可预订 Preorder" : "售罄 Sold out"}</span></div>
       <div class="info">
         <div class="n-cn">${esc(b.name_cn)}</div>
         <div class="n-en">${esc(b.name_en)}</div>
@@ -700,6 +720,29 @@
   });
 
   // ---------- start ----------
+  // ---------- product details: tap any product photo ----------
+  const ZOOM = `<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z"/></svg>`;
+  const zoomImg = (p) => `<span class="zoomable" data-zoom="${esc(p.id)}" role="button" aria-label="查看详情 Details"><img src="${esc(p.image_url)}" alt="" loading="lazy"><span class="zoom-ico" aria-hidden="true">${ZOOM}</span></span>`;
+  function showDetail(pid) {
+    const p = byId()[pid]; if (!p) return;
+    $("#dt-img").src = p.image_url; $("#dt-img").alt = p.name_en || "";
+    $("#dt-cn").textContent = p.name_cn || p.name_en; $("#dt-en").textContent = p.name_cn ? p.name_en : "";
+    $("#dt-meta").textContent = p.meta || "";
+    const sellAlone = p.on_shelf && p.price != null, out = p.stock <= 0;
+    $("#dt-row").innerHTML = (sellAlone ? `<span class="tag">${money(p.price)}</span>` : `<span class="muted">套餐/组合专用 · only in meal sets &amp; packs</span>`)
+      + `<span class="${out ? (p.preorder_ok ? "pre-chip" : "muted") : "ok-chip"}">${out ? (p.preorder_ok ? "今天没货 · 可预订 preorder" : "售罄 sold out") : p.stock <= 3 ? `仅剩 ${p.stock} left` : "有货 · in stock"}</span>`;
+    $("#detail").hidden = false;
+    $("#detail .x").focus();
+  }
+  const closeDetail = () => ($("#detail").hidden = true);
+  // capture phase: a photo tap opens details instead of picking / adding the item
+  document.addEventListener("click", (e) => {
+    const z = e.target.closest("[data-zoom]");
+    if (z && !e.target.closest("#detail")) { e.preventDefault(); e.stopPropagation(); showDetail(z.dataset.zoom); }
+  }, true);
+  $("#detail").addEventListener("click", (e) => { if (e.target.id === "detail" || e.target.closest("[data-zclose]")) closeDetail(); });
+  document.addEventListener("keydown", (e) => { if (e.key === "Escape" && !$("#detail").hidden) { e.stopImmediatePropagation(); closeDetail(); } }, true);
+
   // ---------- header drop-downs (info, account menu) ----------
   function closeDrops() {
     for (const [b, p] of [["#info-btn", "#info-panel"], ["#menu-btn", "#menu-panel"]]) { $(p).hidden = true; $(b).setAttribute("aria-expanded", "false"); }

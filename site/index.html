@@ -153,6 +153,20 @@
 
 <div class="toast" id="toast" role="status" aria-live="polite" hidden></div>
 
+<!-- ============ product details (opens from any photo, above other sheets) ============ -->
+<div class="zoomlayer" id="detail" hidden>
+  <div class="zoomcard" role="dialog" aria-modal="true" aria-labelledby="dt-cn">
+    <button class="x" type="button" data-zclose aria-label="Close">×</button>
+    <div class="dt-img"><img id="dt-img" alt=""></div>
+    <div class="dt-body">
+      <h3 id="dt-cn"></h3>
+      <div class="dt-en" id="dt-en"></div>
+      <div class="dt-meta" id="dt-meta"></div>
+      <div class="dt-row" id="dt-row"></div>
+    </div>
+  </div>
+</div>
+
 <!-- ============ paused / closed pop-up ============ -->
 <div class="overlay popup" id="status-pop" hidden>
   <div class="popcard" role="alertdialog" aria-modal="true" aria-labelledby="pop-title" aria-describedby="pop-msg">
