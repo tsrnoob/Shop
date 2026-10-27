@@ -158,7 +158,7 @@
 
   // ---------- products ----------
   async function loadProducts(quiet) {
-    try { products = await API.listProducts(); renderProducts(quiet); renderInventory(); fillSaleSelect(); if (!quiet) renderBundles(); }
+    try { products = await API.listProducts(); renderProducts(quiet); renderInventory(); fillSaleSelect(); renderShopState(); if (!quiet) renderBundles(); }
     catch (e) { if (!quiet) $("#products").innerHTML = `<div class="empty">Couldn't load products: ${esc(e.message)}</div>`; }
   }
   const rowOff = (p) => !(p.active && (p.price != null || !p.on_shelf));
@@ -398,7 +398,9 @@
   });
 
   // ---------- open / paused / closed ----------
-  // Pause: nobody can order what's in stock, stock is kept (lectures). Close: every stock goes to 0 (end of day).
+  // Pause: nobody can order what's in stock, stock is kept (lectures).
+  // Close: end of the day, either keeping the stock or setting it all to 0. While closed,
+  // customers see the stock as tomorrow's stock (so you can also restock for tomorrow) and can preorder.
   // Either way customers see a big banner and a pop-up with the optional message; preorders still work.
   const shopMode = () => (settings?.shop_open !== false ? "open" : settings?.shop_paused ? "paused" : "closed");
   function renderShopState() {
@@ -409,12 +411,15 @@
     $("#shopstate-txt").innerHTML = {
       open: "<b>Shop is open</b> · customers can order what's in stock",
       paused: "<b>Selling paused</b> · stock is kept, customers can only preorder",
-      closed: "<b>Shop is closed</b> · stock cleared, customers can only preorder"
+      closed: products.some((p) => p.stock > 0)
+        ? "<b>Shop is closed</b> · customers see your stock as <b>tomorrow's stock</b> and can preorder"
+        : "<b>Shop is closed</b> · stock is 0. Add tomorrow's stock on Products and customers will see it as tomorrow's stock"
     }[mode];
+    const closeBtns = `<button class="btn small" type="button" data-mode="closed_keep">Close · keep stock</button><button class="btn small" type="button" data-mode="closed">Close · clear stock</button>`;
     $("#shopstate-btns").innerHTML = {
-      open: `<button class="btn small" type="button" data-mode="paused">Pause selling</button><button class="btn small" type="button" data-mode="closed">Close for today</button>`,
-      paused: `<button class="btn small primary" type="button" data-mode="open">Resume selling</button><button class="btn small" type="button" data-mode="closed">Close for today</button>`,
-      closed: `<button class="btn small primary" type="button" data-mode="open">Open shop</button>`
+      open: `<button class="btn small" type="button" data-mode="paused">Pause selling</button>${closeBtns}`,
+      paused: `<button class="btn small primary" type="button" data-mode="open">Resume selling</button>${closeBtns}`,
+      closed: `<button class="btn small primary" type="button" data-mode="open">Open shop</button>${products.some((p) => p.stock > 0) ? `<button class="btn small" type="button" data-mode="closed">Clear all stock</button>` : ""}`
     }[mode];
     // the message can be shown any time (open, paused or closed): banner + pop-up for customers
     const msg = $("#ss-msg"), cur = settings.status_message || "";
@@ -432,11 +437,12 @@
       setTimeout(() => { if (btn.isConnected && btn.dataset.confirm === "1") renderShopState(); }, 5000);
       return;
     }
-    const msg = $("#ss-msg").value.trim();
+    const msg = $("#ss-msg").value.trim(), was = shopMode();
     $$("#shopstate-btns button").forEach((b) => (b.disabled = true));
     try {
       const r = await API.setShopState(to, to === "open" ? null : msg);
-      toast(to === "closed" ? `Shop closed. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`
+      toast(to === "closed" ? `${was === "closed" ? "Stock cleared" : "Shop closed"}. Stock set to 0 on ${r?.cleared ?? 0} product${r?.cleared === 1 ? "" : "s"}.`
+        : to === "closed_keep" ? "Shop closed, stock kept. Customers see it as tomorrow's stock."
         : to === "paused" ? "Selling paused. Stock is kept; tap Resume when you're back."
         : products.some((p) => p.stock > 0) ? "Open again" : "Open, but every stock is 0. Add today's stock on Products.");
       await Promise.all([loadSettings(), loadProducts()]);

@@ -150,6 +150,9 @@
   const comboPre = (b, c) => { const P = byId(); return paidSlots(b).every((s, i) => P[c.p[i]]?.preorder_ok); };
   const comboAvail = (b, c) => comboInStock(b, c) || comboPre(b, c);
   const setAny = (b) => (b.combos || []).some((c) => comboAvail(b, c));
+  // while the shop is closed, the stock that's set is shown as tomorrow's stock
+  const tmr = (p) => Math.max(0, Number(p?.next_stock) || 0);
+  const setTmr = (b) => { const P = byId(); return (b.combos || []).some((c) => paidSlots(b).every((s, i) => tmr(P[c.p[i]]) >= s.qty)); };
 
   // ---------- cart ----------
   const singleKey = (id, pre) => "p:" + id + (pre ? ":pre" : "");
@@ -267,7 +270,7 @@
         <div class="info">
           <div class="n-cn">套餐 <span class="n-en">Meal sets</span></div>
           <ul class="slots">${bs.map((b) => `<li class="${setOk(b) ? "" : setAny(b) ? "" : "muted"}">${esc(b.name_cn)}${setOk(b) ? "" : setAny(b) ? ' <span class="pre-chip">· 可预订 preorder</span>' : " · 售罄 sold out"}</li>`).join("")}</ul>
-          ${pre ? `<div class="prenote"><span>今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in</span></div>` : ""}
+          ${pre ? `<div class="prenote"><span>${pool.some(setTmr) ? "明天有货，现在就可以预订<br>Closed now · in stock tomorrow, preorder it now" : "今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in"}</span></div>` : ""}
           <div class="row"><span class="price-wrap"><span class="tag">${money(from)} 起</span>${best > 0.005 ? `<span class="save">最多省 ${money(best)} · save up to ${money(best)}</span>` : ""}</span>
             ${ok ? `<button class="btn primary" type="button" data-setall>选择套餐 Choose</button>` : pre ? `<button class="btn prebtn" type="button" data-setall>预订套餐 Preorder</button>` : `<button class="btn" disabled>售罄 Sold out</button>`}</div>
         </div>
@@ -318,7 +321,7 @@
           <span class="n-cn">${esc(m.name_cn)}</span>
           <span class="n-en">${esc(m.name_en)}</span>
           <ul class="slots">${lines}</ul>
-          ${pre ? `<span class="prenote"><span>今天没货，可以预订 · Out right now, preorder it</span></span>` : ""}
+          ${pre ? `<span class="prenote"><span>${setTmr(m) ? "明天有货，现在预订 · In stock tomorrow, preorder it" : "今天没货，可以预订 · Out right now, preorder it"}</span></span>` : ""}
           ${open ? insideOf(m) : ""}
           <span class="setpick-foot">${can ? `<span class="tag">${money(Math.min(...cs.map((c) => Number(c.price))))} 起</span>${sv ? `<span class="save">${sv}</span>` : ""}` : `<span class="muted">售罄 Sold out</span>`}
             <span class="foot-btns"><button type="button" class="btn small ghost" data-more="${i}" aria-expanded="${!!open}">${open ? "收起 Hide ▴" : "查看菜品 What's inside ▾"}</button>
@@ -423,7 +426,7 @@
           : `<span class="stepper"><button type="button" data-dec="${s.id}|${esc(p.id)}" ${n ? "" : "disabled"} aria-label="One less">−</button><span>${n}</span><button type="button" data-inc="${s.id}|${esc(p.id)}" ${have >= s.qty || (free <= 0 && !(mix && p.preorder_ok)) ? "disabled" : ""} aria-label="One more">+</button></span>`;
         return `<${single ? "button type=\"button\"" : "div"} class="opt ${n ? "on" : ""} ${out ? "out" : ""}" ${single && !out ? `data-pick="${s.id}|${esc(p.id)}|${s.qty}"` : ""} ${single && out ? "disabled" : ""}>
           ${zoomImg(p)}
-          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${preOpt ? `<span class="pre-chip">今天没货 · 可预订 preorder</span>` : ""}${sv ? `<span class="save">${sv}</span>` : ""}</span>
+          <span class="t"><span class="n-cn">${esc(p.name_cn)}</span><span class="sub">${why}</span>${preOpt ? `<span class="pre-chip">${tmr(p) ? `明天有 ${tmr(p)} 个 · ${tmr(p)} tomorrow · 可预订 preorder` : "今天没货 · 可预订 preorder"}</span>` : ""}${sv ? `<span class="save">${sv}</span>` : ""}</span>
           ${ctrl}
         </${single ? "button" : "div"}>`;
       }).join("")}</div></div>`;
@@ -510,7 +513,8 @@
       const k = singleKey(p.id, pre);
       const inCart = cart[k]?.qty || 0;
       const cal = `<svg viewBox="0 0 16 16" width="12" height="12" aria-hidden="true"><path fill="currentColor" d="M4 0h1.5v2h5V0H12v2h2a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V3a1 1 0 0 1 1-1h2zM2.5 6v8.5h11V6z"/></svg>`;
-      const badge = pre ? `<span class="stock prebadge">${cal} 可预订 Preorder</span>`
+      const badge = pre && tmr(p) ? `<span class="stock prebadge tmr">${cal} 明天有 ${tmr(p)} 个 · ${tmr(p)} tomorrow</span>`
+        : pre ? `<span class="stock prebadge">${cal} 可预订 Preorder</span>`
         : out ? `<span class="stock out">售罄 Sold out</span>`
         : `<span class="stock ${p.stock <= 3 ? "low" : ""}">${p.stock <= 3 ? `仅剩 ${p.stock} left` : `${p.stock} in stock`}</span>`;
       let action;
@@ -523,7 +527,7 @@
           <div class="n-cn">${esc(p.name_cn)}</div>
           <div class="n-en">${esc(p.name_en)}</div>
           ${p.meta ? `<div class="meta">${esc(p.meta)}</div>` : ""}
-          ${pre ? `<div class="prenote">${cal}<span>今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in</span></div>` : ""}
+          ${pre ? `<div class="prenote">${cal}<span>${tmr(p) ? "明天有货，现在就可以预订<br>Closed now · in stock tomorrow, preorder it now" : "今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in"}</span></div>` : ""}
           <div class="row"><span class="tag">${money(p.price)}</span>${action}</div>
         </div>
       </article>`;
@@ -730,7 +734,7 @@
     $("#dt-meta").textContent = p.meta || "";
     const sellAlone = p.on_shelf && p.price != null, out = p.stock <= 0;
     $("#dt-row").innerHTML = (sellAlone ? `<span class="tag">${money(p.price)}</span>` : `<span class="muted">套餐/组合专用 · only in meal sets &amp; packs</span>`)
-      + `<span class="${out ? (p.preorder_ok ? "pre-chip" : "muted") : "ok-chip"}">${out ? (p.preorder_ok ? "今天没货 · 可预订 preorder" : "售罄 sold out") : p.stock <= 3 ? `仅剩 ${p.stock} left` : "有货 · in stock"}</span>`;
+      + `<span class="${out ? (p.preorder_ok ? "pre-chip" : "muted") : "ok-chip"}">${out ? (p.preorder_ok ? (tmr(p) ? `明天有 ${tmr(p)} 个 · ${tmr(p)} tomorrow · 可预订 preorder` : "今天没货 · 可预订 preorder") : "售罄 sold out") : p.stock <= 3 ? `仅剩 ${p.stock} left` : "有货 · in stock"}</span>`;
     $("#detail").hidden = false;
     $("#detail .x").focus();
   }
@@ -777,6 +781,8 @@
       paused: { ico: "⏸", title: "暂停接单 · Paused for now", sub: "稍后恢复，可以先预订 · Back soon. You can still preorder." },
       closed: { ico: "🌙", title: "已打烊 · Closed right now", sub: "今天不能直接下单，可以预订 · You can't order for today, but you can preorder." }
     }[mode];
+    if (mode === "closed" && (shop?.products || []).some((p) => tmr(p) > 0))
+      T.sub = "下面显示的是明天的库存，现在就可以预订 · The shop shows tomorrow's stock. Preorder now, pick up tomorrow.";
     bar.className = "statusbar " + mode;
     $("#sb-ico").textContent = T.ico; $("#sb-title").textContent = T.title; $("#sb-sub").textContent = T.sub; $("#sb-sub").hidden = !T.sub;
     $("#sb-msg").hidden = !msg; $("#sb-msg").textContent = msg;

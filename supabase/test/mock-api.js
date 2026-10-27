@@ -93,7 +93,7 @@
   window.API = {
     configured: true,
     getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
-      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => ({ ...p, stock: S.shop_open ? p.stock : 0 })),
+      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => ({ ...p, stock: S.shop_open ? p.stock : 0, next_stock: !S.shop_open && !S.shop_paused ? p.stock : null })),
       bundles: B.filter((b) => b.active && combos(b).length).map((b) => ({ ...b, slots: [...b.bundle_slots].sort((x, y) => x.sort - y.sort), combos: combos(b) })) }),
     async login(u) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
       if (!c) err("bad_login"); if (!c.active) err("account_disabled");
