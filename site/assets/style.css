@@ -257,6 +257,10 @@ button.opt { cursor: pointer; }
 .ord ul ul { padding-left: 16px; }
 .set .slots .choices { font-family: var(--f-cn); }
 .price-wrap { display: inline-flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.pricebox { display: inline-flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+.wasline { display: inline-flex; align-items: center; gap: 5px; line-height: 1; }
+.was { color: var(--muted, #888); font: 500 .8rem var(--f-num); text-decoration-thickness: 1.5px; text-decoration-color: #d33; }
+.off { background: #d6262b; color: #fff; font: 700 .68rem var(--f-num); padding: 2px 5px; border-radius: 3px; }
 .save { font-size: .78rem; font-weight: 700; color: var(--ok); }
 
 /* several menus stacked on one price card */

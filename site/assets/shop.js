@@ -528,7 +528,7 @@
           <div class="n-en">${esc(p.name_en)}</div>
           ${p.meta ? `<div class="meta">${esc(p.meta)}</div>` : ""}
           ${pre ? `<div class="prenote">${cal}<span>${tmr(p) ? "明天有货，现在就可以预订<br>Closed now · in stock tomorrow, preorder it now" : "今天没货，可以预订<br>Out right now · preorder, I'll tell you on WeChat when it's in"}</span></div>` : ""}
-          <div class="row"><span class="tag">${money(p.price)}</span>${action}</div>
+          <div class="row">${priceTag(p)}${action}</div>
         </div>
       </article>`;
     }).join("");
@@ -727,13 +727,17 @@
   // ---------- product details: tap any product photo ----------
   const ZOOM = `<svg viewBox="0 0 24 24" width="14" height="14"><path fill="currentColor" d="M10 3a7 7 0 0 1 5.6 11.2l4.6 4.6-1.4 1.4-4.6-4.6A7 7 0 1 1 10 3zm0 2a5 5 0 1 0 0 10 5 5 0 0 0 0-10zm-1 2h2v2h2v2h-2v2H9v-2H7V9h2z"/></svg>`;
   const zoomImg = (p) => `<span class="zoomable" data-zoom="${esc(p.id)}" role="button" aria-label="查看详情 Details"><img src="${esc(p.image_url)}" alt="" loading="lazy"><span class="zoom-ico" aria-hidden="true">${ZOOM}</span></span>`;
+  // price with the real old price crossed out (only when the price was actually cut)
+  const wasOf = (p) => (p.was_price != null && Number(p.was_price) > Number(p.price) + 0.004 ? Number(p.was_price) : 0);
+  const priceTag = (p) => { const w = wasOf(p);
+    return w ? `<span class="pricebox"><span class="wasline"><s class="was">${money(w)}</s><span class="off">−${money(w - Number(p.price))}</span></span><span class="tag">${money(p.price)}</span></span>` : `<span class="tag">${money(p.price)}</span>`; };
   function showDetail(pid) {
     const p = byId()[pid]; if (!p) return;
     $("#dt-img").src = p.image_url; $("#dt-img").alt = p.name_en || "";
     $("#dt-cn").textContent = p.name_cn || p.name_en; $("#dt-en").textContent = p.name_cn ? p.name_en : "";
     $("#dt-meta").textContent = p.meta || "";
     const sellAlone = p.on_shelf && p.price != null, out = p.stock <= 0;
-    $("#dt-row").innerHTML = (sellAlone ? `<span class="tag">${money(p.price)}</span>` : `<span class="muted">套餐/组合专用 · only in meal sets &amp; packs</span>`)
+    $("#dt-row").innerHTML = (sellAlone ? priceTag(p) : `<span class="muted">套餐/组合专用 · only in meal sets &amp; packs</span>`)
       + `<span class="${out ? (p.preorder_ok ? "pre-chip" : "muted") : "ok-chip"}">${out ? (p.preorder_ok ? (tmr(p) ? `明天有 ${tmr(p)} 个 · ${tmr(p)} tomorrow · 可预订 preorder` : "今天没货 · 可预订 preorder") : "售罄 sold out") : p.stock <= 3 ? `仅剩 ${p.stock} left` : "有货 · in stock"}</span>`;
     $("#detail").hidden = false;
     $("#detail .x").focus();

@@ -181,6 +181,7 @@
         <button class="btn small ghost" data-open="${esc(p.id)}">Edit</button>
         <div class="edit">
           <label class="mini"><span>Price €</span><input data-f="price" inputmode="decimal" value="${p.price == null ? "" : Number(p.price).toFixed(2)}" placeholder="—"></label>
+          <label class="mini" title="The price it really sold for before. Shown crossed out while it's above the price. Leave empty for none."><span>Was € <small>(crossed out)</small></span><input data-f="compare_price" inputmode="decimal" value="${p.compare_price == null ? "" : Number(p.compare_price).toFixed(2)}" placeholder="—"></label>
           <label class="mini"><span>Cost €</span><input data-f="cost" inputmode="decimal" value="${Number(p.cost).toFixed(2)}"></label>
           <div class="mini"><span>Stock</span><div class="qty"><button type="button" class="qbtn" data-step="-1" aria-label="One less">−</button><input data-f="stock" type="number" min="0" inputmode="numeric" value="${p.stock}" data-was="${p.stock}" aria-label="Stock"><button type="button" class="qbtn" data-step="1" aria-label="One more">+</button></div></div>
           <div class="mini stockbox"><div><span>Restock</span><input data-f="restock" type="number" min="1" inputmode="numeric" placeholder="+0"></div><button class="btn small" data-restock="${esc(p.id)}">Add</button></div>
@@ -222,7 +223,7 @@
     const p = products.find((x) => x.id === row.dataset.id); if (!p) return;
     const f = el.dataset.f;
     const revert = () => {
-      if (f === "price") el.value = fmt2(p.price); else if (f === "cost") el.value = fmt2(p.cost);
+      if (f === "price") el.value = fmt2(p.price); else if (f === "compare_price") el.value = fmt2(p.compare_price); else if (f === "cost") el.value = fmt2(p.cost);
       else if (f === "stock") el.value = p.stock; else if (f === "type") el.value = typeOf(p); else el.checked = !!p[f];
     };
     let patch = null, stockTo = null;
@@ -231,6 +232,11 @@
       if (Number.isNaN(v) || (v !== null && v < 0)) { toast("Price must be a number, e.g. 2.50"); return revert(); }
       if ((v === null && p.price == null) || (v !== null && p.price != null && Math.abs(v - Number(p.price)) < 0.005)) return revert();
       patch = { price: v === null ? null : Math.round(v * 100) / 100 };
+    } else if (f === "compare_price") {
+      const v = num(el.value);
+      if (Number.isNaN(v) || (v !== null && v < 0)) { toast("Was-price must be a number, e.g. 2.50, or empty"); return revert(); }
+      if ((v === null && p.compare_price == null) || (v !== null && p.compare_price != null && Math.abs(v - Number(p.compare_price)) < 0.005)) return revert();
+      patch = { compare_price: v === null ? null : Math.round(v * 100) / 100 };
     } else if (f === "cost") {
       const v = num(el.value);
       if (v === null || Number.isNaN(v) || v < 0) { toast("Cost must be a number, e.g. 1.06"); return revert(); }

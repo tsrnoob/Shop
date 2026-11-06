@@ -36,7 +36,8 @@
   ];
   let slotSeq = 7;
   const cents = (x) => Math.round(Number(x) * 100);
-  for (const p of P) if (p.id.startsWith("wl-pc")) { p.preorder_ok = true; p.price = { "wl-pc-sour": 0.39, "wl-pc-spicy": 0.52, "wl-pc-mala": 0.55 }[p.id]; p.cost = { "wl-pc-sour": 0.09, "wl-pc-spicy": 0.22, "wl-pc-mala": 0.25 }[p.id]; p.stock = { "wl-pc-sour": 5, "wl-pc-spicy": 1, "wl-pc-mala": 0 }[p.id]; }
+  for (const p of P) if (p.price != null && !["5889", "5890"].includes(p.id)) p.compare_price = Math.round((p.price + 0.5) * 100) / 100;
+for (const p of P) if (p.id.startsWith("wl-pc")) { p.preorder_ok = true; p.price = { "wl-pc-sour": 0.39, "wl-pc-spicy": 0.52, "wl-pc-mala": 0.55 }[p.id]; p.cost = { "wl-pc-sour": 0.09, "wl-pc-spicy": 0.22, "wl-pc-mala": 0.25 }[p.id]; p.stock = { "wl-pc-sour": 5, "wl-pc-spicy": 1, "wl-pc-mala": 0 }[p.id]; }
   B.push({ id: "pack-konjac3", name_cn: "卫龙魔芋爽 3包 · 口味任选", name_en: "Weilong Konjac Shuang — any 3 packs", description: "3 packs, mix any flavours", price: null, active: true, sort: 100, kind: "pack", section: "snack",
     bundle_slots: [{ id: 9, label_cn: "魔芋爽 口味任选", label_en: "Pick any 3 packs", category: "konjac", qty: 3, is_gift: false, sort: 10, options: ["wl-pc-sour", "wl-pc-spicy", "wl-pc-mala"] }] });
   function combos(b) {
@@ -93,7 +94,7 @@
   window.API = {
     configured: true,
     getShop: () => wait({ settings: { ...S, earliest_preorder: plus(S.preorder_days) },
-      products: P.filter((p) => p.active).map(({ cost, purchased, ...p }) => ({ ...p, stock: S.shop_open ? p.stock : 0, next_stock: !S.shop_open && !S.shop_paused ? p.stock : null })),
+      products: P.filter((p) => p.active).map(({ cost, purchased, compare_price, ...p }) => ({ ...p, was_price: compare_price > p.price ? compare_price : null, stock: S.shop_open ? p.stock : 0, next_stock: !S.shop_open && !S.shop_paused ? p.stock : null })),
       bundles: B.filter((b) => b.active && combos(b).length).map((b) => ({ ...b, slots: [...b.bundle_slots].sort((x, y) => x.sort - y.sort), combos: combos(b) })) }),
     async login(u) { await wait(); const c = C.find((x) => x.username.toLowerCase() === u.toLowerCase());
       if (!c) err("bad_login"); if (!c.active) err("account_disabled");
